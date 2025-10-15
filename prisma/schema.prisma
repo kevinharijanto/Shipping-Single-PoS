@@ -8,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Enums ----------
+// ---------- Enums (unchanged) ----------
 enum PaymentMethod {
   qris
   bank_transfer
@@ -20,9 +20,9 @@ enum Service {
 }
 
 enum LocalDeliveryStatus {
-  on_the_way // from local shop to your warehouse/home
-  pending_payment // arrived, weight known, invoice to send
-  paid // customer has paid
+  on_the_way
+  pending_payment
+  paid
 }
 
 enum DeliveryStatus {
@@ -34,51 +34,33 @@ enum DeliveryStatus {
 
 // ---------- Core people ----------
 model Customer {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   name       String
-  phone      String  @unique
-  shopeeName String? // optional marketplace handle
-
-  // housekeeping
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  orders Order[]
+  phone      String   @unique
+  shopeeName String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  orders     Order[]
 
   @@index([phone])
 }
 
-model Recipient {
-  id               String  @id @default(cuid())
-  fullName         String
-  address1         String
-  address2         String?
-  city             String
-  state            String?
-  zip              String?
-  country          String // ISO-2 or readable (your call)
-  phone            String?
-  email            String?
-  companyName      String?
-  phoneCode        String? // e.g. "1" for US
-  isNoPhone        Boolean @default(false)
-  shipmentCategory String? // e.g., "M"
-  ioss             String?
-  iossCheck        Boolean @default(false)
-
-  // Optional references to sale/channel/remark you provided
-  saleRecordNumber String? @unique // "2945"
-  saleChannel      String? // Shopee/Etsy/etc
-  shipmentRemark   String?
-
-  // housekeeping
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// *** NEW: Buyer (replaces Recipient). All fields REQUIRED. saleRecordNumber UNIQUE. ***
+model Buyer {
+  id               Int    @id @default(autoincrement())
+  saleRecordNumber String @unique
+  buyerFullName    String
+  buyerAddress1    String
+  buyerAddress2    String
+  buyerCity        String
+  buyerState       String
+  buyerZip         String
+  buyerCountry     String
+  buyerPhone       String
 
   orders Order[]
 
-  @@index([fullName])
-  @@index([saleRecordNumber])
+  @@index([buyerFullName])
 }
 
 // ---------- Orders & package ----------
@@ -90,10 +72,10 @@ model Order {
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerId String
 
-  recipient   Recipient @relation(fields: [recipientId], references: [id], onDelete: Restrict)
-  recipientId String
+  // Link to Buyer (int)
+  buyer   Buyer @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  buyerId Int
 
-  // 1–1 relation: packageId must be unique
   package   PackageDetail @relation(fields: [packageId], references: [id], onDelete: Cascade)
   packageId String        @unique
 
@@ -117,13 +99,13 @@ model Order {
   @@index([placedAt])
   @@index([localStatus, deliveryStatus])
   @@index([customerId])
-  @@index([recipientId])
+  @@index([buyerId])
 }
 
 model PackageDetail {
   id              String   @id @default(cuid())
-  weightGrams     Int? // actual weight in grams
-  lengthCm        Decimal? // <-- REMOVE native type hints for SQLite
+  weightGrams     Int?
+  lengthCm        Decimal?
   widthCm         Decimal?
   heightCm        Decimal?
   volumetricGrams Int?
@@ -133,20 +115,19 @@ model PackageDetail {
   order           Order?
 }
 
-// Line items inside the shipment declaration (maps your `contentItem` array)
 model OrderItem {
   id      String @id @default(cuid())
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId String
 
-  description     String // "photo"
-  quantity        Int // "1"
-  valueMinor      Int // value in minor units (e.g., 7.00 USD -> 700)
-  itemWeightGrams Int // "100"
-  currency        String // "USD"
-  sku             String? // optional
-  hsCode          String? // "490900"
-  countryOfOrigin String? // "ID"
+  description     String
+  quantity        Int
+  valueMinor      Int
+  itemWeightGrams Int
+  currency        String
+  sku             String?
+  hsCode          String?
+  countryOfOrigin String?
 
   @@index([orderId])
 }
