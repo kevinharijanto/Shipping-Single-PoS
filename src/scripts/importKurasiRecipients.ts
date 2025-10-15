@@ -23,6 +23,7 @@ async function upsertBuyerBatch(buyers: (ReturnType<typeof toBuyerInput>)[]) {
         buyerZip:       b.buyerZip,
         buyerCountry:   b.buyerCountry,
         buyerPhone:     b.buyerPhone,
+        phoneCode:      b.phoneCode,
       },
       create: b,
       select: { id: true },

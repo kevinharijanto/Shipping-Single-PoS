@@ -72,7 +72,7 @@ export async function fetchKurasiPage(params: KurasiQuery): Promise<{
 
 // ---- Recipient mapper (defensive: supports multiple possible keys) ----
 export type BuyerInput = {
-  saleRecordNumber: string; // unique
+  saleRecordNumber: string;
   buyerFullName: string;
   buyerAddress1: string;
   buyerAddress2: string;
@@ -81,27 +81,26 @@ export type BuyerInput = {
   buyerZip: string;
   buyerCountry: string;
   buyerPhone: string;
+  phoneCode: string;              // <— NEW
 };
 
 const S = (v: any) => (v == null ? "" : String(v).trim());
 
 export function toBuyerInput(row: KurasiShipment): BuyerInput | null {
-  // Stable unique key fallback chain
   const srn = S(row.saleRecordNumber) || S(row.receiptNumber) || (S(row.kurasiShipmentId) ? `KRS-${S(row.kurasiShipmentId)}` : "");
-
-  // If we STILL don't have any identifier at all, we truly can't store uniquely.
   if (!srn) return null;
 
   return {
-    saleRecordNumber: srn,                // always populated now
+    saleRecordNumber: srn,
     buyerFullName:    S(row.buyerFullName),
     buyerAddress1:    S(row.buyerAddress1),
-    buyerAddress2:    S(row.buyerAddress2),   // empty string ok
+    buyerAddress2:    S(row.buyerAddress2), // empty ok
     buyerCity:        S(row.buyerCity),
     buyerState:       S(row.buyerState),
     buyerZip:         S(row.buyerZip),
     buyerCountry:     S(row.buyerCountry),
     buyerPhone:       S(row.buyerPhone),
+    phoneCode:        S(row.phoneCode),     // <— NEW (stores "+1", "+61", etc.)
   };
 }
 

@@ -47,16 +47,17 @@ model Customer {
 
 // *** NEW: Buyer (replaces Recipient). All fields REQUIRED. saleRecordNumber UNIQUE. ***
 model Buyer {
-  id               Int    @id @default(autoincrement())
-  saleRecordNumber String @unique
-  buyerFullName    String
-  buyerAddress1    String
-  buyerAddress2    String
-  buyerCity        String
-  buyerState       String
-  buyerZip         String
-  buyerCountry     String
-  buyerPhone       String
+  id                Int    @id @default(autoincrement())
+  saleRecordNumber  String @unique
+  buyerFullName     String
+  buyerAddress1     String
+  buyerAddress2     String
+  buyerCity         String
+  buyerState        String
+  buyerZip          String
+  buyerCountry      String
+  buyerPhone        String
+  phoneCode         String @default("")   // <— NEW (required, Kurasi name)
 
   orders Order[]
 
