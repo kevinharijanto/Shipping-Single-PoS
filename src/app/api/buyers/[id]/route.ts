@@ -6,10 +6,10 @@ import { normalizeAndSplitPhone } from "@/lib/phone";
 // GET /api/buyers/[id]?withOrders=1
 export async function GET(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> } // 👈 params is a Promise in Next 15 API routes
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // 👈 await it
+    const { id } = await ctx.params; // <- Next 15: params is a Promise
     const url = new URL(req.url);
     const withOrders = url.searchParams.get("withOrders") === "1";
 
@@ -35,7 +35,10 @@ export async function GET(
       },
     });
 
-    if (!buyer) return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    if (!buyer) {
+      return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    }
+
     return NextResponse.json(buyer);
   } catch (error) {
     console.error("GET /api/buyers/[id] error:", error);
@@ -46,11 +49,14 @@ export async function GET(
 // PUT /api/buyers/[id]
 export async function PUT(
   request: NextRequest,
-  ctx: { params: Promise<{ id: string }> } // 👈 async params
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // 👈 await it
-    const body = await request.json();
+    const { id } = await ctx.params; // <- await params
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
     const {
       buyerFullName,
@@ -64,15 +70,20 @@ export async function PUT(
       buyerPhone,
     } = body ?? {};
 
+    // required fields
     const requiredMissing =
       !buyerFullName || !buyerAddress1 || !buyerCity || !buyerZip || !buyerCountry || !buyerPhone;
     if (requiredMissing) {
       return NextResponse.json({ error: "Required fields are missing" }, { status: 400 });
     }
 
+    // ensure target exists
     const target = await prisma.buyer.findUnique({ where: { id } });
-    if (!target) return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    if (!target) {
+      return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    }
 
+    // normalize country
     const countryCode = normalizeCountryCode(String(buyerCountry));
     if (!countryCode) {
       return NextResponse.json(
@@ -81,8 +92,11 @@ export async function PUT(
       );
     }
 
+    // normalize phone (E.164 + phoneCode)
     const parsed = normalizeAndSplitPhone(String(buyerPhone), countryCode);
-    if (!parsed) return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+    if (!parsed) {
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+    }
 
     const updated = await prisma.buyer.update({
       where: { id },
@@ -96,18 +110,23 @@ export async function PUT(
         buyerCountry: countryCode,
         buyerEmail: (buyerEmail ?? "").toLowerCase().trim(),
         buyerPhone: parsed.e164,
-        phoneCode: parsed.phoneCode,
+        phoneCode: parsed.phoneCode, // e.g. "+62"
       },
     });
 
     return NextResponse.json(updated);
   } catch (err: any) {
+    // Record not found during update
     if (err?.code === "P2025") {
       return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
     }
+    // Unique constraint (country+phone) violated
     if (err?.code === "P2002") {
       return NextResponse.json(
-        { error: "Another buyer already uses this country+phone.", field: ["buyerCountry", "buyerPhone"] },
+        {
+          error: "Another buyer already uses this country+phone.",
+          field: ["buyerCountry", "buyerPhone"],
+        },
         { status: 409 }
       );
     }
@@ -119,10 +138,10 @@ export async function PUT(
 // DELETE /api/buyers/[id]?force=1 or ?mergeInto=<buyerId>
 export async function DELETE(
   request: NextRequest,
-  ctx: { params: Promise<{ id: string }> } // 👈 async params
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // 👈 await it
+    const { id } = await ctx.params; // <- await params
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "1";
     const mergeInto = url.searchParams.get("mergeInto");
@@ -131,14 +150,25 @@ export async function DELETE(
       where: { id },
       select: { id: true, _count: { select: { orders: true, srns: true } } },
     });
-    if (!buyer) return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    if (!buyer) {
+      return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+    }
 
+    // merge path
     if (mergeInto) {
       if (mergeInto === id) {
-        return NextResponse.json({ error: "mergeInto must be a different buyer id" }, { status: 400 });
+        return NextResponse.json(
+          { error: "mergeInto must be a different buyer id" },
+          { status: 400 }
+        );
       }
-      const target = await prisma.buyer.findUnique({ where: { id: mergeInto }, select: { id: true } });
-      if (!target) return NextResponse.json({ error: "Target buyer not found" }, { status: 404 });
+      const target = await prisma.buyer.findUnique({
+        where: { id: mergeInto },
+        select: { id: true },
+      });
+      if (!target) {
+        return NextResponse.json({ error: "Target buyer not found" }, { status: 404 });
+      }
 
       await prisma.$transaction(async (tx) => {
         await tx.order.updateMany({ where: { buyerId: id }, data: { buyerId: mergeInto } });
@@ -149,6 +179,7 @@ export async function DELETE(
       return NextResponse.json({ ok: true, mergedInto: mergeInto }, { status: 200 });
     }
 
+    // hard delete guard
     if (buyer._count.orders > 0 && !force) {
       return NextResponse.json(
         {
@@ -160,7 +191,7 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.buyerSRN.deleteMany({ where: { buyerId: id } }); // safe even if cascade
+      await tx.buyerSRN.deleteMany({ where: { buyerId: id } }); // safe even with FK cascade
       if (force && buyer._count.orders > 0) {
         await tx.order.deleteMany({ where: { buyerId: id } });
       }
@@ -170,7 +201,10 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (err: any) {
     if (err?.code === "P2003") {
-      return NextResponse.json({ error: "Foreign key constraint blocked deletion." }, { status: 409 });
+      return NextResponse.json(
+        { error: "Foreign key constraint blocked deletion." },
+        { status: 409 }
+      );
     }
     console.error("DELETE /api/buyers/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete buyer" }, { status: 500 });

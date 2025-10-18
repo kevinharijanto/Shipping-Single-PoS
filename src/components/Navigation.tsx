@@ -73,6 +73,10 @@ export default function Navigation() {
           <div className="px-4 py-4">
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Shipping PoS</h1>
           </div>
+          <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+            <ColorThemeSwitcher />
+            <ThemeSwitcher />
+          </div>
           <div className="px-2 space-y-1">
             {navItems.map((item) => (
               <Link
@@ -88,10 +92,6 @@ export default function Navigation() {
                 {item.label}
               </Link>
             ))}
-          </div>
-          <div className="mt-auto px-4 py-4 flex items-center gap-2">
-            <ColorThemeSwitcher />
-            <ThemeSwitcher />
           </div>
         </div>
       </aside>

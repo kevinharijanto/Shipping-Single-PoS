@@ -6,12 +6,44 @@ import { normalizeAndSplitPhone } from "@/lib/phone";
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const withOrders = url.searchParams.get("withOrders") === "1";
+    const page     = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "25", 10)));
+    const qRaw     = (url.searchParams.get("q") || "").trim();
 
-    const [totalBuyers, totalSRN, buyers] = await prisma.$transaction([
-      prisma.buyer.count(),
-      prisma.buyerSRN.count(),
+    // Build WHERE
+    let where: any = {};
+    if (qRaw) {
+      const isNum = /^\d+$/.test(qRaw);
+      const srnFilter = isNum ? [{ saleRecordNumber: { equals: Number(qRaw) } }] : [];
+
+      where = {
+        OR: [
+          { buyerFullName: { contains: qRaw } }, // SQLite LIKE is case-insensitive for ASCII
+          { buyerCity:     { contains: qRaw } },
+          { buyerCountry:  { contains: qRaw } },
+          { buyerPhone:    { contains: qRaw } },
+          {
+            srns: {
+              some: {
+                OR: [
+                  ...srnFilter,
+                  { kurasiShipmentId: { contains: qRaw } },
+                  { trackingNumber:   { contains: qRaw } },
+                  { trackingSlug:     { contains: qRaw } },
+                ],
+              },
+            },
+          },
+        ],
+      };
+    }
+
+    const [totalBuyers, totalSRN, totalFiltered, buyers] = await prisma.$transaction([
+      prisma.buyer.count(),                   // overall count
+      prisma.buyerSRN.count(),                // overall SRN count
+      prisma.buyer.count({ where }),          // filtered count
       prisma.buyer.findMany({
+        where,
         include: {
           _count: { select: { orders: true } },
           srns: {
@@ -23,18 +55,23 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { saleRecordNumber: "asc" },
           },
-          ...(withOrders && {
-            orders: {
-              orderBy: { createdAt: "desc" },
-              select: { id: true, createdAt: true },
-            },
-          }),
         },
         orderBy: { buyerFullName: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
     ]);
 
-    return NextResponse.json({ totalBuyers, totalSRN, buyers });
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+    return NextResponse.json({
+      page,
+      pageSize,
+      totalPages,
+      totalFiltered,
+      totalBuyers,
+      totalSRN,
+      buyers,
+    });
   } catch (e) {
     console.error("GET /api/buyers error", e);
     return NextResponse.json({ error: "Failed to fetch buyers" }, { status: 500 });

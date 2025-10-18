@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import NewCustomerModal from "@/components/NewCustomerModal";
 
 interface Customer {
   id: string;
@@ -20,6 +21,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -83,12 +85,12 @@ export default function CustomersPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Customers</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage your local customers</p>
         </div>
-        <Link
-          href="/customers/new"
+        <button
+          onClick={() => setIsModalOpen(true)}
           className="btn btn-primary"
         >
           Add Customer
-        </Link>
+        </button>
       </div>
 
       {/* Search */}
@@ -202,6 +204,16 @@ export default function CustomersPage() {
           </table>
         </div>
       </div>
+
+      {/* New Customer Modal */}
+      <NewCustomerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          fetchCustomers();
+          setIsModalOpen(false);
+        }}
+      />
     </div>
   );
 }

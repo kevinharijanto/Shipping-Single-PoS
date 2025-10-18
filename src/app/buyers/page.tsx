@@ -1,116 +1,205 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import RecipientModal from "@/components/RecipientModal";
 
-interface Buyer {
-  id: number;
-  saleRecordNumber: string;
+type BuyerSRN = {
+  saleRecordNumber: number;
+  kurasiShipmentId: string | null;
+  trackingNumber: string | null;
+  trackingSlug: string | null;
+};
+
+type Buyer = {
+  id: string;
   buyerFullName: string;
   buyerAddress1: string;
+  buyerAddress2: string;
   buyerCity: string;
   buyerState: string;
   buyerZip: string;
   buyerCountry: string;
-  buyerPhone: string;
-  phoneCode: string;
+  buyerEmail: string | null;
+  buyerPhone: string;   // E.164
+  phoneCode: string;    // e.g. "+62"
   createdAt: string;
   updatedAt: string;
-  _count: {
-    orders: number;
-  };
+  _count: { orders: number };
+  srns: BuyerSRN[];
+};
+
+type BuyersResponse = {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalFiltered: number;
+  totalBuyers: number;
+  totalSRN: number;
+  buyers: Buyer[];
+};
+
+// --- tiny debounce hook -------------------------------------------------------
+function useDebounced<T>(value: T, delay = 300) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
 }
 
-export default function BuyersPage() {
-  const [buyers, setBuyers] = useState<Buyer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  useEffect(() => {
-    fetchBuyers();
-  }, []);
-
-  async function fetchBuyers() {
-    try {
-      const response = await fetch("/api/buyers");
-      if (!response.ok) {
-        throw new Error("Failed to fetch recipients");
-      }
-      const data = await response.json();
-      setBuyers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function deleteBuyer(id: number) {
-    if (!confirm("Are you sure you want to delete this recipient?")) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/buyers/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete recipient");
-      }
-
-      await fetchBuyers(); // Refresh the list
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    }
-  }
-
-  const filteredBuyers = buyers.filter(
-    (buyer) =>
-      buyer.buyerFullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      buyer.saleRecordNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      buyer.buyerCountry.toLowerCase().includes(searchTerm.toLowerCase())
+function DotSpinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" role="status" aria-label="loading">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
+      <path d="M22 12a10 10 0 0 1-10 10" fill="currentColor" />
+    </svg>
   );
+}
+// -----------------------------------------------------------------------------
 
-  if (loading) {
+export default function BuyersPage() {
+  const [data, setData] = useState<BuyersResponse | null>(null);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedQ = useDebounced(searchTerm, 300);
+  const [loading, setLoading] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // modal state (create/edit)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [modalInitial, setModalInitial] = useState<null | {
+    id?: string;
+    buyerFullName?: string;
+    buyerPhone?: string;
+    buyerAddress1?: string;
+    buyerCity?: string;
+    buyerState?: string;
+    buyerZip?: string;
+    buyerCountry?: string;
+  }>(null);
+
+  // abortable fetch bound to page/pageSize/debounced search
+  async function fetchBuyers(q: string, p: number, ps: number) {
+    // cancel previous in-flight request
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const qs = new URLSearchParams({
+        page: String(p),
+        pageSize: String(ps),
+        q: q.trim(),
+      });
+      const res = await fetch(`/api/buyers?${qs.toString()}`, { signal: ac.signal });
+      if (!res.ok) throw new Error("Failed to fetch buyers");
+      const payload: BuyersResponse = await res.json();
+      setData(payload);
+      setBuyers(payload.buyers);
+      setIsFirstLoad(false);
+      if (p > payload.totalPages) setPage(payload.totalPages || 1);
+    } catch (e: any) {
+      if (e?.name !== "AbortError") setError(e?.message || "An error occurred");
+    } finally {
+      if (!ac.signal.aborted) setLoading(false);
+    }
+  }
+
+  // refetch when page / pageSize / debounced search changes
+  useEffect(() => {
+    fetchBuyers(debouncedQ, page, pageSize);
+    return () => abortRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, debouncedQ]);
+
+  async function deleteBuyer(id: string) {
+    if (!confirm("Delete this recipient? (Only allowed if they have 0 orders)")) return;
+    try {
+      const res = await fetch(`/api/buyers/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "Failed to delete");
+      }
+      fetchBuyers(debouncedQ, page, pageSize);
+    } catch (e: any) {
+      setError(e?.message || "An error occurred");
+    }
+  }
+
+  const filtered = useMemo(() => buyers, [buyers]);
+
+  if (isFirstLoad && loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading recipients...</div>
+        <div className="text-lg">Loading recipients…</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+      {/* Header & stats */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Recipients</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage international recipients</p>
         </div>
-        <Link
-          href="/buyers/new"
-          className="btn btn-primary w-full sm:w-auto"
-        >
-          Add Recipient
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total Recipients</div>
+            <div className="font-semibold">{data?.totalBuyers ?? 0}</div>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total SRNs</div>
+            <div className="font-semibold">{data?.totalSRN ?? 0}</div>
+          </div>
+          <button
+            onClick={() => {
+              setModalMode("create");
+              setModalInitial(null);
+              setModalOpen(true);
+            }}
+            className="btn btn-primary"
+          >
+            Add Recipient
+          </button>
+        </div>
       </div>
 
       {/* Search */}
       <div className="card p-4">
-        <div className="w-full sm:max-w-md">
+        <div className="w-full sm:max-w-xl">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Search Recipients
+            Search (name / country / city / phone / SRN / KRS / tracking)
           </label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input w-full"
-            placeholder="Search by name, record number, or country..."
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setPage(1);
+                setSearchTerm(e.target.value);
+              }}
+              className="input w-full pr-8"
+              placeholder="e.g. 'KRS2205', 'ID', 'Jakarta', '129', '+4479…'"
+              aria-busy={loading}
+            />
+            {loading && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+                <DotSpinner />
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -120,94 +209,134 @@ export default function BuyersPage() {
         </div>
       )}
 
-      {/* Buyers Table - Desktop View */}
-      <div className="card overflow-hidden hidden lg:block">
+      {/* Desktop table */}
+      <div className="card overflow-hidden hidden xl:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Record Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Country
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  City
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Orders
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
+                <Th>Recipient</Th>
+                <Th>Country / City</Th>
+                <Th>Phone</Th>
+                <Th>SRNs / KRS / Tracking</Th>
+                <Th>Orders</Th>
+                <Th>Actions</Th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-              {filteredBuyers.length === 0 ? (
+            <tbody
+              className={`bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700 transition-opacity ${
+                loading ? "opacity-60" : "opacity-100"
+              }`}
+            >
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                    {searchTerm ? "No recipients found matching your search" : "No recipients yet"}
+                  <td colSpan={6} className="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+                    {searchTerm ? "No recipients match your search." : "No recipients yet."}
                   </td>
                 </tr>
               ) : (
-                filteredBuyers.map((buyer) => (
-                  <tr key={buyer.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {buyer.saleRecordNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        <Link
-                          href={`/buyers/${buyer.id}`}
-                          className="text-primary hover:text-primary-hover"
-                        >
-                          {buyer.buyerFullName}
+                filtered.map((b) => (
+                  <tr key={b.id} className="align-top">
+                    <Td>
+                      <div className="font-medium">
+                        <Link href={`/buyers/${b.id}`} className="text-primary hover:underline">
+                          {b.buyerFullName}
                         </Link>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {buyer.buyerCountry}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {buyer.buyerCity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {buyer.phoneCode}{buyer.buyerPhone}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{b.buyerAddress1}</div>
+                    </Td>
+                    <Td>
+                      <div>{b.buyerCountry}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{b.buyerCity}</div>
+                    </Td>
+                    <Td>
+                      <code className="text-sm">{b.buyerPhone}</code>
+                    </Td>
+                    <Td>
+                      {b.srns.length === 0 ? (
+                        <span className="text-gray-400 text-sm">No SRNs</span>
+                      ) : (
+                        <div className="space-y-2">
+                          {b.srns.slice(0, 3).map((s) => (
+                            <div key={s.saleRecordNumber} className="text-sm">
+                              <span className="font-medium">SRN {s.saleRecordNumber}</span>
+                              {/* KRS → ParcelsApp */}
+                              {s.kurasiShipmentId && (
+                                <>
+                                  {" · "}
+                                  <a
+                                    href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.kurasiShipmentId)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-primary hover:underline"
+                                    title="Open on ParcelsApp"
+                                  >
+                                    {s.kurasiShipmentId}
+                                  </a>
+                                </>
+                              )}
+                              {/* Tracking → ParcelsApp */}
+                              {s.trackingNumber && (
+                                <>
+                                  {" · "}
+                                  <a
+                                    href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.trackingNumber)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-indigo-600 hover:underline"
+                                    title={s.trackingSlug ? `Carrier: ${s.trackingSlug}` : "Open on ParcelsApp"}
+                                  >
+                                    {s.trackingNumber}
+                                  </a>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                          {b.srns.length > 3 && (
+                            <div className="text-xs text-gray-500">+{b.srns.length - 3} more</div>
+                          )}
+                        </div>
+                      )}
+                    </Td>
+                    <Td>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                        {buyer._count.orders} orders
+                        {b._count.orders} orders
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link
-                        href={`/buyers/${buyer.id}`}
-                        className="text-primary hover:text-primary-hover mr-3"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/buyers/${buyer.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => deleteBuyer(buyer.id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        disabled={buyer._count.orders > 0}
-                        title={buyer._count.orders > 0 ? "Cannot delete recipient with orders" : "Delete recipient"}
-                      >
-                        Delete
-                      </button>
-                    </td>
+                    </Td>
+                    <Td>
+                      <div className="flex gap-3">
+                        <Link href={`/buyers/${b.id}`} className="text-primary hover:underline">
+                          View
+                        </Link>
+                        <button
+                          className="text-indigo-600 hover:underline"
+                          onClick={() => {
+                            setModalMode("edit");
+                            setModalInitial({
+                              id: b.id,
+                              buyerFullName: b.buyerFullName,
+                              buyerPhone: b.buyerPhone,
+                              buyerAddress1: b.buyerAddress1,
+                              buyerCity: b.buyerCity,
+                              buyerState: b.buyerState,
+                              buyerZip: b.buyerZip,
+                              buyerCountry: b.buyerCountry,
+                            });
+                            setModalOpen(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteBuyer(b.id)}
+                          className={`text-red-600 hover:underline ${b._count.orders > 0 ? "opacity-40 cursor-not-allowed" : ""}`}
+                          title={b._count.orders > 0 ? "Cannot delete recipient with orders" : "Delete recipient"}
+                          disabled={b._count.orders > 0}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </Td>
                   </tr>
                 ))
               )}
@@ -216,78 +345,103 @@ export default function BuyersPage() {
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="lg:hidden space-y-4">
-        {filteredBuyers.length === 0 ? (
+      {/* Mobile cards */}
+      <div className="xl:hidden space-y-4">
+        {filtered.length === 0 ? (
           <div className="card p-6 text-center text-gray-500 dark:text-gray-400">
-            {searchTerm ? "No recipients found matching your search" : "No recipients yet"}
+            {searchTerm ? "No recipients match your search." : "No recipients yet."}
           </div>
         ) : (
-          filteredBuyers.map((buyer) => (
-            <div key={buyer.id} className="card p-4">
-              <div className="flex justify-between items-start mb-3">
+          filtered.map((b) => (
+            <div key={b.id} className="card p-4">
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    <Link
-                      href={`/buyers/${buyer.id}`}
-                      className="text-primary hover:text-primary-hover"
-                    >
-                      {buyer.buyerFullName}
-                    </Link>
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Record: {buyer.saleRecordNumber}
-                  </p>
+                  <Link href={`/buyers/${b.id}`} className="font-semibold text-primary hover:underline">
+                    {b.buyerFullName}
+                  </Link>
+                  <div className="text-sm text-gray-500">
+                    {b.buyerCountry} · {b.buyerCity}
+                  </div>
                 </div>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                  {buyer._count.orders} orders
+                  {b._count.orders} orders
                 </span>
               </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center text-gray-600 dark:text-gray-400">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {buyer.buyerCity}, {buyer.buyerCountry}
+
+              <div className="mt-3 text-sm">
+                <div className="text-gray-600 dark:text-gray-300">
+                  <code>{b.phoneCode}{b.buyerPhone}</code>
                 </div>
-                
-                <div className="flex items-center text-gray-600 dark:text-gray-400">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  {buyer.phoneCode}{buyer.buyerPhone}
+                <div className="mt-2">
+                  {b.srns.length ? (
+                    <div className="space-y-1">
+                      {b.srns.slice(0, 2).map((s) => (
+                        <div key={s.saleRecordNumber}>
+                          <span className="font-medium">SRN {s.saleRecordNumber}</span>
+                          {s.kurasiShipmentId && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.kurasiShipmentId)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                {s.kurasiShipmentId}
+                              </a>
+                            </>
+                          )}
+                          {s.trackingNumber && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.trackingNumber)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-indigo-600 hover:underline"
+                                title={s.trackingSlug ? `Carrier: ${s.trackingSlug}` : "Open on ParcelsApp"}
+                              >
+                                {s.trackingNumber}
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {b.srns.length > 2 && <div className="text-xs text-gray-500">+{b.srns.length - 2} more</div>}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">No SRNs</span>
+                  )}
                 </div>
-                
-                {buyer.buyerAddress1 && (
-                  <div className="flex items-start text-gray-600 dark:text-gray-400">
-                    <svg className="w-4 h-4 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span className="line-clamp-2">{buyer.buyerAddress1}</span>
-                  </div>
-                )}
               </div>
-              
-              <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <Link
-                  href={`/buyers/${buyer.id}`}
-                  className="btn btn-sm btn-outline flex-1 sm:flex-none"
-                >
+
+              <div className="flex gap-2 mt-4">
+                <Link href={`/buyers/${b.id}`} className="btn btn-sm btn-outline flex-1">
                   View
                 </Link>
-                <Link
-                  href={`/buyers/${buyer.id}/edit`}
-                  className="btn btn-sm btn-secondary flex-1 sm:flex-none"
+                <button
+                  className="btn btn-sm btn-secondary flex-1"
+                  onClick={() => {
+                    setModalMode("edit");
+                    setModalInitial({
+                      id: b.id,
+                      buyerFullName: b.buyerFullName,
+                      buyerPhone: b.buyerPhone,
+                      buyerAddress1: b.buyerAddress1,
+                      buyerCity: b.buyerCity,
+                      buyerState: b.buyerState,
+                      buyerZip: b.buyerZip,
+                      buyerCountry: b.buyerCountry,
+                    });
+                    setModalOpen(true);
+                  }}
                 >
                   Edit
-                </Link>
+                </button>
                 <button
-                  onClick={() => deleteBuyer(buyer.id)}
-                  className="btn btn-sm btn-danger flex-1 sm:flex-none"
-                  disabled={buyer._count.orders > 0}
-                  title={buyer._count.orders > 0 ? "Cannot delete recipient with orders" : "Delete recipient"}
+                  onClick={() => deleteBuyer(b.id)}
+                  className="btn btn-sm btn-danger flex-1 disabled:opacity-50"
+                  disabled={b._count.orders > 0}
                 >
                   Delete
                 </button>
@@ -296,6 +450,74 @@ export default function BuyersPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {data && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Page <span className="font-semibold">{data.page}</span> of{" "}
+            <span className="font-semibold">{data.totalPages}</span> ·{" "}
+            <span className="font-semibold">{data.totalFiltered}</span>{" "}
+            result{data.totalFiltered === 1 ? "" : "s"}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPage(1);
+                setPageSize(parseInt(e.target.value, 10));
+              }}
+              className="input !py-1 !px-2"
+              title="Rows per page"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
+
+            <button
+              className="btn btn-outline"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page <= 1}
+            >
+              ‹ Prev
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+              disabled={data.page >= data.totalPages}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Recipient Modal */}
+      <RecipientModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={() => {
+          fetchBuyers(debouncedQ, page, pageSize);
+          setModalOpen(false);
+        }}
+        mode={modalMode}
+        initial={modalInitial || undefined}
+      />
     </div>
   );
+}
+
+function Th({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+      {children}
+    </th>
+  );
+}
+function Td({ children }: { children: React.ReactNode }) {
+  return <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{children}</td>;
 }
