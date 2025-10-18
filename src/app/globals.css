@@ -2,7 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light theme helpers */
-.card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
-.btn  { @apply rounded-xl border border-slate-300 bg-white px-4 py-2 hover:bg-slate-50 disabled:opacity-60; }
-.input{ @apply rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none; }
+/* CSS Variables for theming */
+:root {
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-light: #e0e7ff;
+}
+
+.dark {
+  --color-primary: #818cf8;
+  --color-primary-hover: #6366f1;
+  --color-primary-light: #312e81;
+}
+
+/* NextAdminHQ-style components */
+.card {
+  @apply rounded-[10px] border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+}
+
+.btn {
+  @apply rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700;
+}
+
+.btn-default {
+  @apply bg-white text-gray-900 hover:bg-gray-50 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700;
+}
+
+.btn-primary {
+  @apply text-white hover:opacity-90;
+  background-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  @apply bg-gray-600 text-white hover:bg-gray-700;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white hover:bg-green-700;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+
+.btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+
+.btn-outline {
+  @apply bg-transparent text-gray-700 border-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800;
+}
+
+.input {
+  @apply rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+}
+
+/* Custom focus ring for primary elements */
+.focus-ring-primary {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-800;
+}
+
+/* Text colors for dark mode */
+.dark\:text-dark {
+  color: #1f2937;
+}
+
+.dark\:text-dark-4 {
+  color: #6b7280;
+}
+
+.dark\:text-dark-5 {
+  color: #9ca3af;
+}
+
+.dark\:text-dark-6 {
+  color: #d1d5db;
+}
+
+/* Background colors for dark mode */
+.dark\:bg-gray-dark {
+  background-color: #1f2937;
+}
+
+.dark\:bg-dark-2 {
+  background-color: #374151;
+}
+
+.dark\:bg-dark-3 {
+  background-color: #4b5563;
+}
+
+/* Border colors for dark mode */
+.dark\:border-dark-3 {
+  border-color: #4b5563;
+}
+
+.dark\:border-dark-4 {
+  border-color: #6b7280;
+}
+
+.dark\:border-stroke-dark {
+  border-color: #374151;
+}
+
+/* Shadow for dark mode cards */
+.dark\:shadow-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Utility classes */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

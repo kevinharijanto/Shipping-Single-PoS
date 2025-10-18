@@ -8,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Enums (unchanged) ----------
+// ---------- Enums ----------
 enum PaymentMethod {
   qris
   bank_transfer
@@ -17,9 +17,13 @@ enum PaymentMethod {
 enum Service {
   economy
   express
+  economy_standard
+  economy_plus
+  packet_premium
 }
 
 enum LocalDeliveryStatus {
+  in_progress
   on_the_way
   pending_payment
   paid
@@ -37,6 +41,7 @@ model Customer {
   id         String   @id @default(cuid())
   name       String
   phone      String   @unique
+  phoneCode  String   @default("+62")
   shopeeName String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -45,23 +50,43 @@ model Customer {
   @@index([phone])
 }
 
-// *** NEW: Buyer (replaces Recipient). All fields REQUIRED. saleRecordNumber UNIQUE. ***
 model Buyer {
-  id                Int    @id @default(autoincrement())
-  saleRecordNumber  String @unique
-  buyerFullName     String
-  buyerAddress1     String
-  buyerAddress2     String
-  buyerCity         String
-  buyerState        String
-  buyerZip          String
-  buyerCountry      String
+  id                String    @id @default(uuid())
+  buyerFullName     String 
+  buyerAddress1     String 
+  buyerAddress2     String 
+  buyerCity         String 
+  buyerState        String 
+  buyerZip          String 
+  buyerCountry      String 
+  buyerEmail        String @default("") 
   buyerPhone        String
-  phoneCode         String @default("")   // <— NEW (required, Kurasi name)
-
+  phoneCode         String @default("")  
+  
+  srns   BuyerSRN[]
   orders Order[]
 
-  @@index([buyerFullName])
+  // Dedupe “person” primarily by phone per country
+  @@unique([buyerCountry, buyerPhone])
+  @@index([buyerEmail])
+  @@index([buyerFullName, buyerCity])
+}
+
+model BuyerSRN {
+  saleRecordNumber Int     @id
+  buyerId          String
+  buyer            Buyer   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  kurasiShipmentId String?  @unique// e.g. "KRS2205130138"
+  trackingNumber   String?  // e.g. "LQ082058163SG"
+  trackingSlug     String?  // e.g. "quantium"
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([kurasiShipmentId])
+  @@index([trackingNumber])
+  @@index([trackingSlug])
 }
 
 // ---------- Orders & package ----------
@@ -74,28 +99,29 @@ model Order {
   customerId String
 
   // Link to Buyer (int)
+  buyerId String
   buyer   Buyer @relation(fields: [buyerId], references: [id], onDelete: Restrict)
-  buyerId Int
 
   package   PackageDetail @relation(fields: [packageId], references: [id], onDelete: Cascade)
   packageId String        @unique
 
   quotedAmountMinor Int?
+  shippingPriceMinor Int?
   currency          String?
   pricingSource     String?
 
-  localStatus    LocalDeliveryStatus @default(on_the_way)
+  localStatus    LocalDeliveryStatus @default(in_progress)
   deliveryStatus DeliveryStatus      @default(not_yet_create_label)
   paymentMethod  PaymentMethod       @default(qris)
 
   externalRef  String?
   labelId      String?
   trackingLink String?
+  krsTrackingNumber String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items OrderItem[]
 
   @@index([placedAt])
   @@index([localStatus, deliveryStatus])
@@ -106,29 +132,22 @@ model Order {
 model PackageDetail {
   id              String   @id @default(cuid())
   weightGrams     Int?
+  totalValue      Decimal?
+  packageDescription String?
   lengthCm        Decimal?
   widthCm         Decimal?
   heightCm        Decimal?
   volumetricGrams Int?
   service         Service
+
+  // Redundant package-level details
+  currency        String?
+  sku             String?
+  hsCode          String?
+  countryOfOrigin String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   order           Order?
 }
 
-model OrderItem {
-  id      String @id @default(cuid())
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId String
-
-  description     String
-  quantity        Int
-  valueMinor      Int
-  itemWeightGrams Int
-  currency        String
-  sku             String?
-  hsCode          String?
-  countryOfOrigin String?
-
-  @@index([orderId])
-}

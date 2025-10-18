@@ -1,0 +1,467 @@
+{
+  "info": {
+    "_postman_id": "shipping-pos-api-collection",
+    "name": "Shipping Single PoS API",
+    "description": "Complete API collection for Shipping Single Point of Sale system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Buyers",
+      "item": [
+        {
+          "name": "Get All Buyers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/buyers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buyers"]
+            },
+            "description": "Get all buyers with their order counts"
+          }
+        },
+        {
+          "name": "Create Buyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"saleRecordNumber\": \"2190\",\n  \"buyerFullName\": \"John Doe\",\n  \"buyerAddress1\": \"123 Main St\",\n  \"buyerAddress2\": \"Apt 4B\",\n  \"buyerCity\": \"New York\",\n  \"buyerState\": \"NY\",\n  \"buyerZip\": \"10001\",\n  \"buyerCountry\": \"United States\",\n  \"buyerPhone\": \"555-123-4567\",\n  \"phoneCode\": \"+1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buyers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buyers"]
+            },
+            "description": "Create a new buyer"
+          }
+        },
+        {
+          "name": "Get Buyer by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/buyers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buyers", "1"]
+            },
+            "description": "Get a specific buyer by ID with their orders"
+          }
+        },
+        {
+          "name": "Update Buyer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"saleRecordNumber\": \"2190\",\n  \"buyerFullName\": \"John Doe Updated\",\n  \"buyerAddress1\": \"123 Main St\",\n  \"buyerAddress2\": \"Apt 4B\",\n  \"buyerCity\": \"New York\",\n  \"buyerState\": \"NY\",\n  \"buyerZip\": \"10001\",\n  \"buyerCountry\": \"United States\",\n  \"buyerPhone\": \"555-123-4567\",\n  \"phoneCode\": \"+1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/buyers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buyers", "1"]
+            },
+            "description": "Update a buyer by ID"
+          }
+        },
+        {
+          "name": "Delete Buyer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/buyers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buyers", "1"]
+            },
+            "description": "Delete a buyer by ID (only if no orders exist)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers"]
+            },
+            "description": "Get all customers with their order counts"
+          }
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\",\n  \"phone\": \"555-987-6543\",\n  \"phoneCode\": \"+1\",\n  \"shopeeName\": \"janesmith_shop\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers"]
+            },
+            "description": "Create a new customer"
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/cus_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers", "cus_123"]
+            },
+            "description": "Get a specific customer by ID with their orders"
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith Updated\",\n  \"phone\": \"555-987-6543\",\n  \"phoneCode\": \"+1\",\n  \"shopeeName\": \"janesmith_shop\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/cus_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers", "cus_123"]
+            },
+            "description": "Update a customer by ID"
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/cus_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers", "cus_123"]
+            },
+            "description": "Delete a customer by ID (only if no orders exist)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders?status=in_progress&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "in_progress",
+                  "description": "Filter by status"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page"
+                }
+              ]
+            },
+            "description": "Get orders with optional filtering and pagination"
+          }
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"cus_123\",\n  \"buyerId\": 1,\n  \"service\": \"EP\",\n  \"notes\": \"Handle with care\",\n  \"weightGrams\": 500,\n  \"totalValue\": 25.99,\n  \"packageDescription\": \"Electronics\",\n  \"lengthCm\": 10,\n  \"widthCm\": 10,\n  \"heightCm\": 5,\n  \"quotedAmountMinor\": 2599,\n  \"shippingPriceMinor\": 1299,\n  \"currency\": \"USD\",\n  \"paymentMethod\": \"qris\",\n  \"sku\": \"ELEC-001\",\n  \"hsCode\": \"490900\",\n  \"countryOfOrigin\": \"ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Create a new order"
+          }
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/order_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "order_123"]
+            },
+            "description": "Get a specific order by ID"
+          }
+        },
+        {
+          "name": "Update Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated notes\",\n  \"localStatus\": \"paid\",\n  \"deliveryStatus\": \"label_confirmed\",\n  \"weightGrams\": 600,\n  \"service\": \"ES\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/order_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "order_123"]
+            },
+            "description": "Update an order by ID"
+          }
+        },
+        {
+          "name": "Delete Order",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/order_123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "order_123"]
+            },
+            "description": "Delete an order by ID"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard & Utilities",
+      "item": [
+        {
+          "name": "Get Dashboard Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard"]
+            },
+            "description": "Get dashboard statistics and recent orders"
+          }
+        },
+        {
+          "name": "Get Next SRN",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/next-srn",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "next-srn"]
+            },
+            "description": "Get the next available Sale Record Number"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kurasi Integration",
+      "item": [
+        {
+          "name": "Import Buyers from Kurasi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2024-01-01\",\n  \"endDate\": \"2024-12-31\",\n  \"index\": 0,\n  \"limit\": 100,\n  \"clientCode\": \"K0016794\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/buyer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "buyer"]
+            },
+            "description": "Import buyers from Kurasi API"
+          }
+        },
+        {
+          "name": "Get Countries from Kurasi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/countries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "countries"]
+            },
+            "description": "Get available countries from Kurasi API"
+          }
+        },
+        {
+          "name": "Login to Kurasi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"your_username\",\n  \"password\": \"your_password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "login"]
+            },
+            "description": "Login to Kurasi API"
+          }
+        },
+        {
+          "name": "Logout from Kurasi",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "logout"]
+            },
+            "description": "Logout from Kurasi API"
+          }
+        },
+        {
+          "name": "Get Shipping Quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"US\",\n  \"actualWeight\": \"500\",\n  \"actualHeight\": \"10\",\n  \"actualLength\": \"10\",\n  \"actualWidth\": \"10\",\n  \"currencyType\": \"USD\",\n  \"supportedCountryCode\": \"US\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/quote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "quote"]
+            },
+            "description": "Get shipping quote from Kurasi API"
+          }
+        },
+        {
+          "name": "Create Shipment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"order_123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/shipment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "shipment"]
+            },
+            "description": "Create shipment with Kurasi API"
+          }
+        },
+        {
+          "name": "Validate HS Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/validate-hscode?hsCode=490900",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "validate-hscode"],
+              "query": [
+                {
+                  "key": "hsCode",
+                  "value": "490900"
+                }
+              ]
+            },
+            "description": "Validate HS Code with Kurasi API"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

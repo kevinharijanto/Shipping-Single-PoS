@@ -1,52 +1,41 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-
-export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
-  const base = process.env.KURASI_BASE ?? "https://api.kurasi.app";
-  const cookieStore = cookies();
-  const token = cookieStore.get("kurasi_token")?.value || process.env.KURASI_TOKEN;
-
-  if (!token) {
-    return NextResponse.json(
-      { status: "FAIL", errorMessage: "Not authenticated. Please login first." },
-      { status: 401 }
-    );
-  }
-
   try {
-    const r = await fetch(`${base}/api/v1/ship/allCountry`, {
-      method: "GET",
+    const response = await fetch('https://api.kurasi.app/api/v1/ship/allCountry', {
+      method: 'GET',
       headers: {
-        Accept: "application/json",
-        Origin: "https://kurasi.app",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Ship-Auth-Token": token,
+        'Accept': 'application/json',
+        'X-Ship-Auth-Token': '0ce805fa-d3c1-4349-9f74-59b40bc60c19',
+        'Origin': 'https://kurasi.app',
+        'X-Requested-With': 'XMLHttpRequest',
       },
-      cache: "no-store",
     });
 
-    const json = await r.json().catch(() => ({}));
-    if (!r.ok || json?.status !== "SUCCESS") {
-      return NextResponse.json(json ?? { status: "FAIL" }, { status: r.status });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // Sliding refresh: extend cookie life on successful use
-    const res = NextResponse.json(json, { status: 200 });
-    res.cookies.set({
-      name: "kurasi_token",
-      value: token,
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30, // refresh 30 days
+    const data = await response.json();
+    
+    if (data.status !== 'SUCCESS') {
+      throw new Error(data.errorMessage || 'Failed to fetch countries');
+    }
+
+    // Transform the data to a more usable format (shortName -> country mapping)
+    const countryMap: Record<string, string> = {};
+    data.data.forEach((country: any) => {
+      countryMap[country.shortName] = country.country;
     });
-    return res;
-  } catch (e: any) {
+
+    return NextResponse.json({
+      countries: data.data,
+      countryMap,
+    });
+  } catch (error) {
+    console.error('Error fetching countries:', error);
     return NextResponse.json(
-      { status: "ERROR", errorMessage: e?.message || "Countries proxy failed" },
+      { error: 'Failed to fetch countries' },
       { status: 500 }
     );
   }
