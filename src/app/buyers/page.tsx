@@ -26,7 +26,7 @@ type Buyer = {
   createdAt: string;
   updatedAt: string;
   _count: { orders: number };
-  srns: BuyerSRN[];
+  srns: BuyerSRN[]; // kept in type, just not rendered in list
 };
 
 type BuyersResponse = {
@@ -78,7 +78,9 @@ export default function BuyersPage() {
     id?: string;
     buyerFullName?: string;
     buyerPhone?: string;
+    buyerEmail?: string;
     buyerAddress1?: string;
+    buyerAddress2?: string; 
     buyerCity?: string;
     buyerState?: string;
     buyerZip?: string;
@@ -218,7 +220,7 @@ export default function BuyersPage() {
                 <Th>Recipient</Th>
                 <Th>Country / City</Th>
                 <Th>Phone</Th>
-                <Th>SRNs / KRS / Tracking</Th>
+                {/* Removed SRNs / KRS / Tracking column */}
                 <Th>Orders</Th>
                 <Th>Actions</Th>
               </tr>
@@ -230,7 +232,7 @@ export default function BuyersPage() {
             >
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={5} className="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
                     {searchTerm ? "No recipients match your search." : "No recipients yet."}
                   </td>
                 </tr>
@@ -252,52 +254,9 @@ export default function BuyersPage() {
                     <Td>
                       <code className="text-sm">{b.buyerPhone}</code>
                     </Td>
-                    <Td>
-                      {b.srns.length === 0 ? (
-                        <span className="text-gray-400 text-sm">No SRNs</span>
-                      ) : (
-                        <div className="space-y-2">
-                          {b.srns.slice(0, 3).map((s) => (
-                            <div key={s.saleRecordNumber} className="text-sm">
-                              <span className="font-medium">SRN {s.saleRecordNumber}</span>
-                              {/* KRS → ParcelsApp */}
-                              {s.kurasiShipmentId && (
-                                <>
-                                  {" · "}
-                                  <a
-                                    href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.kurasiShipmentId)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-primary hover:underline"
-                                    title="Open on ParcelsApp"
-                                  >
-                                    {s.kurasiShipmentId}
-                                  </a>
-                                </>
-                              )}
-                              {/* Tracking → ParcelsApp */}
-                              {s.trackingNumber && (
-                                <>
-                                  {" · "}
-                                  <a
-                                    href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.trackingNumber)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-indigo-600 hover:underline"
-                                    title={s.trackingSlug ? `Carrier: ${s.trackingSlug}` : "Open on ParcelsApp"}
-                                  >
-                                    {s.trackingNumber}
-                                  </a>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                          {b.srns.length > 3 && (
-                            <div className="text-xs text-gray-500">+{b.srns.length - 3} more</div>
-                          )}
-                        </div>
-                      )}
-                    </Td>
+
+                    {/* Removed SRN/KRS/Tracking cell */}
+
                     <Td>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                         {b._count.orders} orders
@@ -316,7 +275,9 @@ export default function BuyersPage() {
                               id: b.id,
                               buyerFullName: b.buyerFullName,
                               buyerPhone: b.buyerPhone,
+                              buyerEmail: b.buyerEmail ?? "", 
                               buyerAddress1: b.buyerAddress1,
+                              buyerAddress2: b.buyerAddress2 ?? "",
                               buyerCity: b.buyerCity,
                               buyerState: b.buyerState,
                               buyerZip: b.buyerZip,
@@ -370,49 +331,10 @@ export default function BuyersPage() {
 
               <div className="mt-3 text-sm">
                 <div className="text-gray-600 dark:text-gray-300">
-                  <code>{b.phoneCode}{b.buyerPhone}</code>
+                  <code>{b.buyerPhone}</code>
                 </div>
-                <div className="mt-2">
-                  {b.srns.length ? (
-                    <div className="space-y-1">
-                      {b.srns.slice(0, 2).map((s) => (
-                        <div key={s.saleRecordNumber}>
-                          <span className="font-medium">SRN {s.saleRecordNumber}</span>
-                          {s.kurasiShipmentId && (
-                            <>
-                              {" · "}
-                              <a
-                                href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.kurasiShipmentId)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                {s.kurasiShipmentId}
-                              </a>
-                            </>
-                          )}
-                          {s.trackingNumber && (
-                            <>
-                              {" · "}
-                              <a
-                                href={`https://parcelsapp.com/en/tracking/${encodeURIComponent(s.trackingNumber)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-indigo-600 hover:underline"
-                                title={s.trackingSlug ? `Carrier: ${s.trackingSlug}` : "Open on ParcelsApp"}
-                              >
-                                {s.trackingNumber}
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                      {b.srns.length > 2 && <div className="text-xs text-gray-500">+{b.srns.length - 2} more</div>}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">No SRNs</span>
-                  )}
-                </div>
+
+                {/* Removed SRN/KRS/Tracking preview on mobile as well */}
               </div>
 
               <div className="flex gap-2 mt-4">

@@ -9,12 +9,12 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // <- Next 15: params is a Promise
+    const { id } = await ctx.params; // Next 15: params is a Promise
     const url = new URL(req.url);
     const withOrders = url.searchParams.get("withOrders") === "1";
 
     const buyer = await prisma.buyer.findUnique({
-      where: { id }, // UUID string
+      where: { id },
       include: {
         _count: { select: { orders: true } },
         srns: {
@@ -39,7 +39,30 @@ export async function GET(
       return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
     }
 
-    return NextResponse.json(buyer);
+    // Explicit serializer: guarantees createdAt/updatedAt are present as ISO strings
+    const payload: any = {
+      id: buyer.id,
+      buyerFullName: buyer.buyerFullName,
+      buyerAddress1: buyer.buyerAddress1,
+      buyerAddress2: buyer.buyerAddress2 ?? "",
+      buyerCity: buyer.buyerCity,
+      buyerState: buyer.buyerState ?? "",
+      buyerZip: buyer.buyerZip,
+      buyerCountry: buyer.buyerCountry,
+      buyerEmail: buyer.buyerEmail ?? "",
+      buyerPhone: buyer.buyerPhone,
+      phoneCode: buyer.phoneCode,
+      _count: buyer._count,
+      srns: buyer.srns,
+      createdAt: buyer.createdAt?.toISOString?.() ?? null,
+      updatedAt: buyer.updatedAt?.toISOString?.() ?? null,
+    };
+
+    if (withOrders) {
+      payload.orders = buyer.orders;
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("GET /api/buyers/[id] error:", error);
     return NextResponse.json({ error: "Failed to fetch buyer" }, { status: 500 });
@@ -52,7 +75,7 @@ export async function PUT(
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // <- await params
+    const { id } = await ctx.params;
     const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -70,20 +93,17 @@ export async function PUT(
       buyerPhone,
     } = body ?? {};
 
-    // required fields
     const requiredMissing =
       !buyerFullName || !buyerAddress1 || !buyerCity || !buyerZip || !buyerCountry || !buyerPhone;
     if (requiredMissing) {
       return NextResponse.json({ error: "Required fields are missing" }, { status: 400 });
     }
 
-    // ensure target exists
     const target = await prisma.buyer.findUnique({ where: { id } });
     if (!target) {
       return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
     }
 
-    // normalize country
     const countryCode = normalizeCountryCode(String(buyerCountry));
     if (!countryCode) {
       return NextResponse.json(
@@ -92,7 +112,6 @@ export async function PUT(
       );
     }
 
-    // normalize phone (E.164 + phoneCode)
     const parsed = normalizeAndSplitPhone(String(buyerPhone), countryCode);
     if (!parsed) {
       return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
@@ -110,17 +129,15 @@ export async function PUT(
         buyerCountry: countryCode,
         buyerEmail: (buyerEmail ?? "").toLowerCase().trim(),
         buyerPhone: parsed.e164,
-        phoneCode: parsed.phoneCode, // e.g. "+62"
+        phoneCode: parsed.phoneCode,
       },
     });
 
     return NextResponse.json(updated);
   } catch (err: any) {
-    // Record not found during update
     if (err?.code === "P2025") {
       return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
     }
-    // Unique constraint (country+phone) violated
     if (err?.code === "P2002") {
       return NextResponse.json(
         {
@@ -141,7 +158,7 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await ctx.params; // <- await params
+    const { id } = await ctx.params;
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "1";
     const mergeInto = url.searchParams.get("mergeInto");
@@ -154,7 +171,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
     }
 
-    // merge path
     if (mergeInto) {
       if (mergeInto === id) {
         return NextResponse.json(
@@ -179,7 +195,6 @@ export async function DELETE(
       return NextResponse.json({ ok: true, mergedInto: mergeInto }, { status: 200 });
     }
 
-    // hard delete guard
     if (buyer._count.orders > 0 && !force) {
       return NextResponse.json(
         {
@@ -191,7 +206,7 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.buyerSRN.deleteMany({ where: { buyerId: id } }); // safe even with FK cascade
+      await tx.buyerSRN.deleteMany({ where: { buyerId: id } });
       if (force && buyer._count.orders > 0) {
         await tx.order.deleteMany({ where: { buyerId: id } });
       }

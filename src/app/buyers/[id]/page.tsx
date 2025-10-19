@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import RecipientModal from "@/components/RecipientModal"; // ← use the shared modal
+import RecipientModal from "@/components/RecipientModal";
 import { displayPhone } from "@/components/displayPhone";
-import { parcelsUrl } from "@/app/components/links";
+import { getFullCountryName } from "@/lib/countryMapping";
 
 type BuyerSRN = {
   saleRecordNumber: number;
@@ -22,7 +22,7 @@ type Buyer = {
   buyerCity: string;
   buyerState: string;
   buyerZip: string;
-  buyerCountry: string;
+  buyerCountry: string;      // 2-letter code
   buyerEmail: string | null;
   buyerPhone: string;
   phoneCode: string;
@@ -37,11 +37,10 @@ export default function BuyerDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
+  // --- state must be declared before any early returns ---
   const [buyer, setBuyer] = useState<Buyer | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
-  // modal state
   const [editOpen, setEditOpen] = useState(false);
 
   async function fetchBuyer() {
@@ -68,6 +67,12 @@ export default function BuyerDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  };
+
+  // --- early returns AFTER state declarations ---
   if (loading) return <div className="p-6">Loading…</div>;
   if (err) return <div className="p-6 text-red-600">{err}</div>;
   if (!buyer) return null;
@@ -80,11 +85,7 @@ export default function BuyerDetailPage() {
           <div className="text-gray-500 text-sm">#{buyer.id}</div>
         </div>
         <div className="flex gap-2">
-          {/* open modal instead of navigating */}
-          <button
-            className="btn btn-secondary"
-            onClick={() => setEditOpen(true)}
-          >
+          <button className="btn btn-secondary" onClick={() => setEditOpen(true)}>
             Edit
           </button>
           <Link href="/buyers" className="btn">Back</Link>
@@ -92,7 +93,7 @@ export default function BuyerDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left: identity */}
+        {/* Left */}
         <div className="xl:col-span-2 space-y-6">
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-3">Contact</h2>
@@ -102,11 +103,19 @@ export default function BuyerDetailPage() {
                 <code>{displayPhone(buyer.buyerPhone, buyer.phoneCode)}</code>
               </div>
               {buyer.buyerEmail ? (
-                <div><span className="font-medium">Email:</span> {buyer.buyerEmail}</div>
+                <div>
+                  <span className="font-medium">Email:</span> {buyer.buyerEmail}
+                </div>
               ) : null}
-              <div><span className="font-medium">Country:</span> {buyer.buyerCountry}</div>
+              <div>
+                <span className="font-medium">Country:</span>{" "}
+                {getFullCountryName(buyer.buyerCountry)}{" "}
+                <span className="text-gray-500">({buyer.buyerCountry})</span>
+              </div>
               <div><span className="font-medium">City:</span> {buyer.buyerCity}</div>
-              {buyer.buyerState ? <div><span className="font-medium">State:</span> {buyer.buyerState}</div> : null}
+              {buyer.buyerState ? (
+                <div><span className="font-medium">State:</span> {buyer.buyerState}</div>
+              ) : null}
               <div><span className="font-medium">ZIP:</span> {buyer.buyerZip}</div>
             </div>
           </div>
@@ -116,6 +125,9 @@ export default function BuyerDetailPage() {
             <div className="text-sm">
               <div>{buyer.buyerAddress1}</div>
               {buyer.buyerAddress2 ? <div>{buyer.buyerAddress2}</div> : null}
+              <div className="text-gray-600 dark:text-gray-300 mt-1">
+                {buyer.buyerCity}{buyer.buyerState ? `, ${buyer.buyerState}` : ""} {buyer.buyerZip}
+              </div>
             </div>
           </div>
 
@@ -168,7 +180,7 @@ export default function BuyerDetailPage() {
           </div>
         </div>
 
-        {/* Right: meta */}
+        {/* Right */}
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-3">Stats</h2>
@@ -187,8 +199,8 @@ export default function BuyerDetailPage() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-3">Timestamps</h2>
             <div className="text-sm">
-              <div>Created: {new Date(buyer.createdAt).toLocaleString()}</div>
-              <div>Updated: {new Date(buyer.updatedAt).toLocaleString()}</div>
+              <div>Created: {fmtDate(buyer.createdAt)}</div>
+              <div>Updated: {fmtDate(buyer.updatedAt)}</div>
             </div>
           </div>
 
@@ -214,7 +226,7 @@ export default function BuyerDetailPage() {
         onClose={() => setEditOpen(false)}
         onSuccess={() => {
           setEditOpen(false);
-          fetchBuyer(); // refresh data after saving
+          fetchBuyer();
         }}
         mode="edit"
         initial={{
@@ -227,8 +239,7 @@ export default function BuyerDetailPage() {
           buyerZip: buyer.buyerZip,
           buyerCountry: buyer.buyerCountry,
           buyerPhone: buyer.buyerPhone,
-          phoneCode: buyer.phoneCode,
-          buyerEmail: buyer.buyerEmail,
+          buyerEmail: buyer.buyerEmail ?? "",
         }}
       />
     </div>
