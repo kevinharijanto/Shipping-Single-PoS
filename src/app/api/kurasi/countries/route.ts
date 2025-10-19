@@ -1,42 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/kurasi/countries/route.ts
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const base = process.env.KURASI_BASE ?? "https://api.kurasi.app";
+  const token = cookies().get("kurasi_token")?.value || "";
+
   try {
-    const response = await fetch('https://api.kurasi.app/api/v1/ship/allCountry', {
-      method: 'GET',
+    const r = await fetch(`${base}/api/v1/ship/country-list`, {
+      method: "GET",
       headers: {
-        'Accept': 'application/json',
-        'X-Ship-Auth-Token': '0ce805fa-d3c1-4349-9f74-59b40bc60c19',
-        'Origin': 'https://kurasi.app',
-        'X-Requested-With': 'XMLHttpRequest',
+        accept: "application/json",
+        ...(token ? { "x-ship-auth-token": token } : {}),
       },
+      cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.status !== 'SUCCESS') {
-      throw new Error(data.errorMessage || 'Failed to fetch countries');
-    }
-
-    // Transform the data to a more usable format (shortName -> country mapping)
-    const countryMap: Record<string, string> = {};
-    data.data.forEach((country: any) => {
-      countryMap[country.shortName] = country.country;
-    });
-
-    return NextResponse.json({
-      countries: data.data,
-      countryMap,
-    });
-  } catch (error) {
-    console.error('Error fetching countries:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch countries' },
-      { status: 500 }
-    );
+    const j = await r.json().catch(() => ({}));
+    return NextResponse.json(j, { status: r.status });
+  } catch {
+    return NextResponse.json({ status: "ERROR", errorMessage: "Failed to load countries" }, { status: 500 });
   }
 }

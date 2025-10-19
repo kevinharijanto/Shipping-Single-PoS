@@ -39,16 +39,31 @@ export async function POST(req: Request) {
 
     const token = json.data.token!;
     const res = NextResponse.json({ status: "SUCCESS" }, { status: 200 });
-    // Persist for 30 days; server may still expire sooner — that’s fine.
+
+    const secure = process.env.NODE_ENV === "production";
+
+    // HttpOnly session token (used by server-to-server proxies)
     res.cookies.set({
       name: "kurasi_token",
       value: token,
       httpOnly: true,
-      secure: true,
+      secure,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30, // 30 days
     });
+
+    // Display label (non-HttpOnly, only for UI)
+    res.cookies.set({
+      name: "kurasi_label",
+      value: String(body.username || ""),
+      httpOnly: false,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+
     return res;
   } catch (e: any) {
     return NextResponse.json(

@@ -1,76 +1,96 @@
 // src/components/Modal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
-type Props = {
+type Size = "sm" | "md" | "lg" | "xl";
+const sizeToWidth: Record<Size, string> = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-3xl",
+  xl: "max-w-5xl",
+};
+
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  size = "md",
+  children,
+  contentClassName = "",
+}: {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: Size;
+  /** extra classes for the scrollable panel body (i.e. where your form lives) */
+  contentClassName?: string;
   children: React.ReactNode;
-};
-
-export default function Modal({ isOpen, onClose, title, size = "md", children }: Props) {
-  const [mounted, setMounted] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-
+}) {
+  // lock body scroll when open
   useEffect(() => {
-    setMounted(true);
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
 
-    const html = document.documentElement;
-    const update = () => setIsDark(html.classList.contains("dark"));
-    update();
+  if (!isOpen) return null;
 
-    // keep in sync if you toggle themes at runtime
-    const obs = new MutationObserver(update);
-    obs.observe(html, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
+  const node = (
+    <div
+      className="fixed inset-0 z-[1000]"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modal-title"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+      />
 
-  if (!mounted || !isOpen) return null;
+      {/* Container that enables viewport scrolling when panel is taller than screen */}
+      <div className="absolute inset-0 overflow-y-auto">
+        {/* Centering rail */}
+        <div className="min-h-full flex items-start justify-center p-4 sm:p-6">
+          {/* Panel */}
+          <div
+            className={`w-full ${sizeToWidth[size]} rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10`}
+          >
+            {/* Header (sticky so actions always visible) */}
+            <div className="sticky top-0 z-10 px-4 sm:px-6 py-3 border-b bg-white/90 dark:bg-gray-900/90 backdrop-blur border-gray-200 dark:border-gray-800">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="modal-title" className="text-base font-semibold">
+                  {title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="btn btn-sm"
+                  aria-label="Close"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
 
-  // NOTE: we wrap the portal contents in a div that conditionally has `dark`
-  return createPortal(
-    <div className={isDark ? "dark" : ""}>
-      {/* overlay */}
-      <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6">
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-[1px]"
-          onClick={onClose}
-        />
-
-        {/* panel */}
-        <div
-          className={[
-            "relative z-10 w-full rounded-2xl shadow-xl",
-            "bg-white dark:bg-gray-900 dark:text-gray-100", // <- now respects dark
-            size === "sm" && "max-w-sm",
-            size === "md" && "max-w-lg",
-            size === "lg" && "max-w-2xl",
-            size === "xl" && "max-w-3xl",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          {/* header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <button
-              onClick={onClose}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            {/* Body: cap max height and allow scrolling */}
+            <div className={`max-h-[80vh] overflow-y-auto ${contentClassName}`}>
+              {children}
+            </div>
           </div>
-
-          {/* body */}
-          <div className="p-5">{children}</div>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  // Render in body to avoid stacking/context issues
+  if (typeof window !== "undefined") {
+    return createPortal(node, document.body);
+  }
+  return node;
 }
