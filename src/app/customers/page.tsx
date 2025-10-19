@@ -95,7 +95,22 @@ export default function CustomersPage() {
       if (!ac.signal.aborted) setLoading(false);
     }
   }
+  async function deleteCustomer(id: string, orders: number) {
+  if (orders > 0) return; // guard in UI too
+  if (!confirm("Delete this customer? (Only allowed if they have 0 orders)")) return;
 
+  try {
+    const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Failed to delete");
+    }
+    // refresh list
+    fetchCustomers(debouncedQ, page, pageSize);
+  } catch (e: any) {
+    setError(e?.message || "An error occurred");
+  }
+}
   useEffect(() => {
     fetchCustomers(debouncedQ, page, pageSize);
     return () => abortRef.current?.abort();
@@ -212,27 +227,37 @@ export default function CustomersPage() {
                         {c._count.orders} orders
                       </span>
                     </Td>
-                    <Td>
-                      <div className="flex gap-3">
-                        <Link href={`/customers/${c.id}`} className="text-primary hover:underline">View</Link>
-                        <button
-                          className="text-indigo-600 hover:underline"
-                          onClick={() => {
-                            setModalMode("edit");
-                            setModalInitial({
-                              id: c.id,
-                              name: c.name,
-                              phone: c.phone,
-                              phoneCode: c.phoneCode,
-                              shopeeName: c.shopeeName ?? "",
-                            });
-                            setModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </Td>
+                   <Td>
+  <div className="flex gap-3">
+    <Link href={`/customers/${c.id}`} className="text-primary hover:underline">View</Link>
+
+    <button
+      className="text-indigo-600 hover:underline"
+      onClick={() => {
+        setModalMode("edit");
+        setModalInitial({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          phoneCode: c.phoneCode,
+          shopeeName: c.shopeeName ?? "",
+        });
+        setModalOpen(true);
+      }}
+    >
+      Edit
+    </button>
+
+    <button
+      onClick={() => deleteCustomer(c.id, c._count.orders)}
+      className={`text-red-600 hover:underline ${c._count.orders > 0 ? "opacity-40 cursor-not-allowed" : ""}`}
+      title={c._count.orders > 0 ? "Cannot delete customer with orders" : "Delete customer"}
+      disabled={c._count.orders > 0}
+    >
+      Delete
+    </button>
+  </div>
+</Td>
                   </tr>
                 ))
               )}
@@ -269,24 +294,32 @@ export default function CustomersPage() {
               </div>
 
               <div className="flex gap-2 mt-4">
-                <Link href={`/customers/${c.id}`} className="btn btn-sm btn-outline flex-1">View</Link>
-                <button
-                  className="btn btn-sm btn-secondary flex-1"
-                  onClick={() => {
-                    setModalMode("edit");
-                    setModalInitial({
-                      id: c.id,
-                      name: c.name,
-                      phone: c.phone,
-                      phoneCode: c.phoneCode,
-                      shopeeName: c.shopeeName ?? "",
-                    });
-                    setModalOpen(true);
-                  }}
-                >
-                  Edit
-                </button>
-              </div>
+  <Link href={`/customers/${c.id}`} className="btn btn-sm btn-outline flex-1">View</Link>
+  <button
+    className="btn btn-sm btn-secondary flex-1"
+    onClick={() => {
+      setModalMode("edit");
+      setModalInitial({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        phoneCode: c.phoneCode,
+        shopeeName: c.shopeeName ?? "",
+      });
+      setModalOpen(true);
+    }}
+  >
+    Edit
+  </button>
+  <button
+    onClick={() => deleteCustomer(c.id, c._count.orders)}
+    className="btn btn-sm btn-danger flex-1 disabled:opacity-50"
+    disabled={c._count.orders > 0}
+    title={c._count.orders > 0 ? "Cannot delete customer with orders" : "Delete customer"}
+  >
+    Delete
+  </button>
+</div>
             </div>
           ))
         )}
