@@ -45,8 +45,7 @@ enum TaxReference {
 model Customer {
   id         String   @id @default(cuid())
   name       String
-  phone      String   @unique
-  phoneCode  String   @default("+62")
+  phone      String   @unique  // E.164 format: "+6281234567890"
   shopeeName String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -65,8 +64,7 @@ model Buyer {
   buyerZip      String
   buyerCountry  String     // ISO-2
   buyerEmail    String @default("")
-  buyerPhone    String
-  phoneCode     String @default("")
+  buyerPhone    String     // E.164 format: "+4479449755416"
 
   srns   BuyerSRN[]
   orders Order[]
@@ -169,4 +167,47 @@ model PackageDetail {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   order              Order?
+}
+
+// ---------- Kurasi Shipment Sync ----------
+model KurasiShipment {
+  kurasiShipmentId  String   @id @unique
+  saleRecordNumber  String?
+  flagId            String?  // Shipped, In Box, etc.
+  
+  // Recipient
+  buyerFullName     String
+  buyerCountry      String   // ISO-2
+  buyerCity         String?
+  buyerState        String?
+  buyerZip          String?
+  buyerPhone        String?
+  
+  // Shipping
+  serviceName       String?  // PP, ES, EP, EX
+  carrier           String?
+  shippingFee       String?  // "104,000" format from Kurasi
+  shippingFeeMinor  Int?     // Parsed numeric value
+  chargeableWeight  Int?
+  actualWeight      Int?
+  
+  // Tracking
+  trackingNumber    String?
+  awb               String?
+  boxId             String?
+  
+  // Timestamps from Kurasi
+  shipmentReceivedAt DateTime?
+  labelCreatedAt     DateTime?
+  shippedAt          DateTime?
+  
+  // Local
+  syncedAt          DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([buyerCountry])
+  @@index([serviceName])
+  @@index([flagId])
+  @@index([shippedAt])
+  @@index([saleRecordNumber])
 }

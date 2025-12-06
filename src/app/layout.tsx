@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Shipping PoS System",
+  title: "Kurasyit",
   description: "Single user Point of Sale system for shipping business."
 };
 

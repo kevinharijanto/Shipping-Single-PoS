@@ -51,8 +51,8 @@ export default function QuotePage() {
 
   // Quote inputs
   const [country, setCountry] = useState("Albania");
-  const [origin, setOrigin] = useState("ID");
-  const [currency, setCurrency] = useState("IDR");
+  const origin = "ID"; // Fixed origin
+  const currency = "IDR"; // Fixed currency
 
   const [actualWeight, setActualWeight] = useState("100");
   const [actualLength, setActualLength] = useState("0");
@@ -76,8 +76,6 @@ export default function QuotePage() {
       "kurasi:last",
       JSON.stringify({
         country,
-        origin,
-        currency,
         actualWeight,
         actualLength,
         actualWidth,
@@ -91,8 +89,6 @@ export default function QuotePage() {
     if (saved) {
       const j = JSON.parse(saved);
       setCountry(j.country ?? "Albania");
-      setOrigin(j.origin ?? "ID");
-      setCurrency(j.currency ?? "IDR");
       setActualWeight(j.actualWeight ?? "100");
       setActualLength(j.actualLength ?? "0");
       setActualWidth(j.actualWidth ?? "0");
@@ -214,8 +210,8 @@ export default function QuotePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Shipping Quote Calculator</h1>
-        <p className="text-gray-600">Get shipping quotes for international deliveries</p>
+        <h1 className="text-3xl font-bold text-[var(--text-main)]">Shipping Quote Calculator</h1>
+        <p className="text-[var(--text-muted)]">Get shipping quotes for international deliveries</p>
       </div>
 
       {/* Kurasi Auth Status */}
@@ -237,7 +233,7 @@ export default function QuotePage() {
       {/* Quote Form */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-sm text-gray-700">Destination Country</span>
+          <span className="text-sm text-[var(--text-main)]">Destination Country</span>
           <ComboBox
             items={countries}
             value={country}
@@ -248,23 +244,10 @@ export default function QuotePage() {
           />
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-gray-700">Origin (supportedCountryCode)</span>
-          <input className="input" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="ID" />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-gray-700">Currency</span>
-          <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            <option value="IDR">IDR</option>
-            <option value="USD">USD</option>
-          </select>
-        </label>
-
         {/* Dimensions + weight */}
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-700">Actual Weight (g)</span>
+            <span className="text-sm text-[var(--text-main)]">Actual Weight (g)</span>
             <input
               className="input"
               value={actualWeight}
@@ -273,7 +256,7 @@ export default function QuotePage() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-700">Length</span>
+            <span className="text-sm text-[var(--text-main)]">Length</span>
             <input
               className="input"
               value={actualLength}
@@ -282,7 +265,7 @@ export default function QuotePage() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-700">Width</span>
+            <span className="text-sm text-[var(--text-main)]">Width</span>
             <input
               className="input"
               value={actualWidth}
@@ -291,7 +274,7 @@ export default function QuotePage() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-gray-700">Height</span>
+            <span className="text-sm text-[var(--text-main)]">Height</span>
             <input
               className="input"
               value={actualHeight}
@@ -303,7 +286,7 @@ export default function QuotePage() {
       </section>
 
       <div className="flex gap-3">
-        <button onClick={fetchQuote} disabled={loading} className="btn">
+        <button onClick={fetchQuote} disabled={loading} className="btn btn-primary">
           {loading ? "Loading..." : "Get Quote"}
         </button>
       </div>
@@ -313,10 +296,10 @@ export default function QuotePage() {
       {/* Results: always show all 4 services, dim "Not available" ones */}
       {data && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Available Services</h2>
-          <table className="w-full text-sm border rounded-lg overflow-hidden">
+          <h2 className="text-lg font-semibold text-[var(--text-main)]">Available Services</h2>
+          <table className="w-full text-sm border border-[var(--border-color)] rounded-lg overflow-hidden">
             <thead>
-              <tr className="bg-gray-100 text-gray-700">
+              <tr className="bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]">
                 <th className="p-2 text-left">Code</th>
                 <th className="p-2 text-left">Title</th>
                 <th className="p-2 text-right">Amount</th>
@@ -328,10 +311,10 @@ export default function QuotePage() {
                 const unavailable = !s.available;
                 const isCheapest = !unavailable && s.code === cheapestCode;
                 return (
-                  <tr key={s.code} className={`border-t ${unavailable ? "opacity-50" : ""}`}>
+                  <tr key={s.code} className={`border-t border-[var(--border-color)] ${unavailable ? "opacity-50" : ""}`}>
                     <td className="p-2">
                       <span
-                        className={`inline-block rounded px-2 py-0.5 ${isCheapest ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                        className={`inline-block rounded px-2 py-0.5 ${isCheapest ? "bg-[var(--color-primary-light)] text-[var(--color-primary)]" : "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]"
                           }`}
                       >
                         {s.code}
@@ -341,7 +324,7 @@ export default function QuotePage() {
                     <td className="p-2">{s.title}</td>
                     <td className="p-2 text-right">
                       {unavailable ? (
-                        <span className="text-gray-400 italic">Not available</span>
+                        <span className="text-[var(--text-muted)] italic">Not available</span>
                       ) : (
                         s.displayAmount || (typeof s.amount === "number" ? formatCurrency(s.amount, currencyForFmt) : "-")
                       )}
@@ -354,14 +337,14 @@ export default function QuotePage() {
           </table>
 
           {data?.meta && (
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-[var(--text-muted)]">
               Chargeable: {data.meta.chargeableWeight ?? "-"} | Volumetric: {data.meta.volumetricWeight ?? "-"} | Currency:{" "}
               {(data.meta.currencySymbol ?? "") + (data.meta.currencyType ?? "")}
             </p>
           )}
 
           {catalog.every((s) => !s.available) && (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--text-muted)]">
               No services available for this input. Try adjusting weight/dimensions or country.
             </p>
           )}

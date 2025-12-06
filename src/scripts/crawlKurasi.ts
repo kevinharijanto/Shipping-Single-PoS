@@ -124,7 +124,6 @@ async function upsertBuyerChunk(batch: { buyer: KurasiBuyerInput; srn: ReturnTyp
             buyerState: b.buyerState,
             buyerZip: b.buyerZip,
             buyerEmail: b.buyerEmail || "",
-            phoneCode: b.phoneCode,
           },
           create: {
             buyerFullName: b.buyerFullName,
@@ -135,8 +134,7 @@ async function upsertBuyerChunk(batch: { buyer: KurasiBuyerInput; srn: ReturnTyp
             buyerZip: b.buyerZip,
             buyerCountry: b.buyerCountry,
             buyerEmail: b.buyerEmail || "",
-            buyerPhone: b.buyerPhone,
-            phoneCode: b.phoneCode,
+            buyerPhone: b.buyerPhone,  // E.164 format
           },
           select: { id: true },
         });
@@ -184,14 +182,14 @@ function loadCheckpoint(): string | null {
       const s = JSON.parse(fs.readFileSync(CHECKPOINT, "utf8"));
       return s?.monthEnd || null; // e.g. "2025-09-30"
     }
-  } catch {}
+  } catch { }
   return null;
 }
 function saveCheckpoint(monthEnd: string) {
   try {
     if (monthEnd) fs.writeFileSync(CHECKPOINT, JSON.stringify({ monthEnd }), "utf8");
     else if (fs.existsSync(CHECKPOINT)) fs.unlinkSync(CHECKPOINT); // clear on success
-  } catch {}
+  } catch { }
 }
 
 /** Main crawl: newest → oldest, monthly slices, paginated inside each month */

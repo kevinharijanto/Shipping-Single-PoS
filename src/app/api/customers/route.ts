@@ -7,17 +7,17 @@ import { normalizeAndSplitPhone } from "@/lib/phone";
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const page     = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "25", 10)));
-    const qRaw     = (url.searchParams.get("q") || "").trim();
+    const qRaw = (url.searchParams.get("q") || "").trim();
 
     let where: any = {};
     if (qRaw) {
       where = {
         OR: [
-          { name:       { contains: qRaw } },  // SQLite LIKE: case-insensitive for ASCII
+          { name: { contains: qRaw } },  // SQLite LIKE: case-insensitive for ASCII
           { shopeeName: { contains: qRaw } },
-          { phone:      { contains: qRaw } },
+          { phone: { contains: qRaw } },
         ],
       };
     }
@@ -71,30 +71,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
     }
 
-    // Try to normalize into E.164 using phoneCode as a hint (when provided)
-    // normalizeAndSplitPhone(phone, countryIso2?) expects ISO2, but if your helper
-    // supports just raw E.164 parsing, you can pass null/undefined.
-    // If your helper *requires* ISO2, you may derive it from the phoneCode externally.
-    const parsed = normalizeAndSplitPhone(String(phone), undefined);
+    // Build combined phone for parsing
+    // If user provided phoneCode (e.g., "+62") and phone starts with 0 (local format),
+    // combine them: +62 + 8111280720 (remove leading 0) = +628111280720
+    let phoneToNormalize = String(phone).trim();
+    if (phoneCode && phoneToNormalize.startsWith("0")) {
+      // Remove leading 0 and prepend country code
+      const code = phoneCode.startsWith("+") ? phoneCode : `+${phoneCode}`;
+      phoneToNormalize = `${code}${phoneToNormalize.slice(1)}`;
+    } else if (phoneCode && !phoneToNormalize.startsWith("+")) {
+      // No leading 0 but also no +, prepend country code
+      const code = phoneCode.startsWith("+") ? phoneCode : `+${phoneCode}`;
+      phoneToNormalize = `${code}${phoneToNormalize}`;
+    }
+
+    // Try to normalize into E.164
+    const parsed = normalizeAndSplitPhone(phoneToNormalize, "ID");
     if (!parsed) {
       return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
     }
 
-    // Prefer parsed.phoneCode (from lib) over inbound phoneCode; fallback to inbound
-    const resolvedPhoneCode = parsed.phoneCode || phoneCode || "+62";
+    // Use parsed phoneCode or fallback to provided (for logging/display, not stored)
+    // const resolvedPhoneCode = parsed.phoneCode || phoneCode || "+62";
 
-    // Upsert by E.164 phone (unique)
+    // Upsert by E.164 phone (unique) - phoneCode removed from schema
     const customer = await prisma.customer.upsert({
       where: { phone: parsed.e164 },
       update: {
         name,
-        phoneCode: resolvedPhoneCode,
         shopeeName: shopeeName ?? null,
       },
       create: {
         name,
         phone: parsed.e164,
-        phoneCode: resolvedPhoneCode,
         shopeeName: shopeeName ?? null,
       },
       include: {

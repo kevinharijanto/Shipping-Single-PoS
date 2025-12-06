@@ -25,6 +25,7 @@ function normalizeMoneyToDecimalString(raw: string): string {
 /* =========================================================
  * GET /api/orders
  *   ?page=1&limit=10
+ *   ?groupBy=customer  -> returns { groups: [{ customer, orders }] }
  *   Optional filters:
  *     status=local:in_progress | local:paid | delivery:label_confirmed | ...
  * ========================================================= */
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10)));
-    const status = url.searchParams.get("status") || ""; // "local:paid" | "delivery:ready_to_send"
+    const status = url.searchParams.get("status") || "";
+    const groupBy = url.searchParams.get("groupBy") || "";
 
     // Optional status filter
     let where: any = {};
@@ -43,6 +45,38 @@ export async function GET(req: NextRequest) {
       else if (scope === "delivery") where.deliveryStatus = value;
     }
 
+    // Grouped by customer
+    if (groupBy === "customer") {
+      const customers = await prisma.customer.findMany({
+        where: { orders: { some: where } },
+        orderBy: { name: "asc" },
+        include: {
+          orders: {
+            where,
+            orderBy: { placedAt: "desc" },
+            select: {
+              id: true,
+              placedAt: true,
+              localStatus: true,
+              deliveryStatus: true,
+              shippingPriceMinor: true,
+              notes: true,
+              buyer: { select: { id: true, buyerFullName: true, buyerCountry: true } },
+              package: { select: { id: true, weightGrams: true, service: true } },
+            },
+          },
+        },
+      });
+
+      const groups = customers.map((c) => ({
+        customer: { id: c.id, name: c.name, phone: c.phone },
+        orders: c.orders,
+      }));
+
+      return NextResponse.json({ groups });
+    }
+
+    // Default: flat list with pagination
     const [total, orders] = await prisma.$transaction([
       prisma.order.count({ where }),
       prisma.order.findMany({
@@ -121,10 +155,10 @@ export async function POST(req: NextRequest) {
       shippingPriceMinor === null || shippingPriceMinor === undefined
         ? null
         : (() => {
-            const n = Number(shippingPriceMinor);
-            if (!Number.isFinite(n) || n < 0) return null;
-            return Math.round(n);
-          })();
+          const n = Number(shippingPriceMinor);
+          if (!Number.isFinite(n) || n < 0) return null;
+          return Math.round(n);
+        })();
 
     const created = await prisma.$transaction(async (tx) => {
       const srnInt = Number(srn);

@@ -12,29 +12,47 @@ dayjs.extend(tz);
 const API_URL = "https://api.kurasi.app/api/v1/shipmentManagement";
 const TZ = "Asia/Jakarta";
 
-// helper: best-effort phone parse; never block insert
-function normalizeOrKeepRawPhone(raw: string, iso2: string): { phone: string; phoneCode: string } {
-  const trimmed = (raw || "").trim();
-  if (!trimmed) return { phone: "", phoneCode: "" };
+/**
+ * Build E.164 phone from Kurasi's separate fields.
+ * Returns only the phone (E.164 format), no longer returns phoneCode.
+ */
+function buildE164Phone(buyerPhone: string, phoneCode: string, iso2: string): string {
+  const digits = (buyerPhone || "").trim();
+  if (!digits) return "";
 
-  // 1) Try strict parse
-  const p = parsePhoneNumberFromString(trimmed, iso2 as any);
-  if (p && p.isValid()) {
-    return { phone: p.number, phoneCode: `+${p.countryCallingCode}` }; // E.164
+  // Normalize phoneCode (ensure it has +)
+  let code = (phoneCode || "").trim();
+  if (code && !code.startsWith("+")) code = `+${code}`;
+
+  // If we have phoneCode from Kurasi, combine with digits
+  if (code) {
+    // Remove leading zeros from national number (e.g., AU: 0411... → 411...)
+    const national = digits.replace(/^0+/, "");
+    const candidate = `${code}${national}`;
+
+    // Validate with libphonenumber
+    const p = parsePhoneNumberFromString(candidate);
+    if (p && p.isValid()) {
+      return p.number; // Properly formatted E.164
+    }
+    return candidate; // E.164-like format
   }
 
-  // 2) Fallbacks (store raw):
-  //    - phoneCode from leading +digits (e.g., "+44...")
-  const m = trimmed.match(/^\+(\d{1,4})/);
-  if (m) return { phone: trimmed, phoneCode: `+${m[1]}` };
-
-  //    - otherwise, derive from country if possible (best effort)
+  // Fallback: try to derive country code from iso2
   try {
     const cc = getCountryCallingCode(iso2 as any);
-    return { phone: trimmed, phoneCode: cc ? `+${cc}` : "" };
-  } catch {
-    return { phone: trimmed, phoneCode: "" };
-  }
+    if (cc) {
+      const national = digits.replace(/^0+/, "");
+      const candidate = `+${cc}${national}`;
+      const p = parsePhoneNumberFromString(candidate);
+      if (p && p.isValid()) {
+        return p.number;
+      }
+      return candidate;
+    }
+  } catch { /* ignore */ }
+
+  return digits;
 }
 
 /* =========================
@@ -71,7 +89,6 @@ export type KurasiBuyerInput = {
   buyerCountry: string;      // ISO-2 uppercase
   buyerEmail: string;        // always a string ("" if missing)
   buyerPhone: string;        // E.164, e.g., "+17206929493"
-  phoneCode: string;         // e.g., "+1"
 };
 
 /* =========================
@@ -149,7 +166,7 @@ function normalizePhone(raw: string, iso2Hint: string): { e164: string; phoneCod
  * Map a Kurasi row into a normalized Buyer input for our DB.
  * - Requires a numeric saleRecordNumber (skips otherwise)
  * - Normalizes country to ISO-2
- * - Normalizes phone to E.164 and derives phoneCode
+ * - Normalizes phone to E.164 format
  * - buyerEmail is always a string ("" if missing)
  */
 export function toBuyerInput(row: KurasiShipment): KurasiBuyerInput | null {
@@ -157,10 +174,15 @@ export function toBuyerInput(row: KurasiShipment): KurasiBuyerInput | null {
   const srnNum = Number(String(row.saleRecordNumber ?? "").trim());
   if (!Number.isFinite(srnNum)) return null;
 
-  const iso2 = normalizeCountryCode(String(row.buyerCountry || ""));
+  const iso2 = normalizeCountryCode(String(row.buyerCountry || row.countryShortName || ""));
   if (!iso2) return null;
 
-  const { phone, phoneCode } = normalizeOrKeepRawPhone(String(row.buyerPhone || ""), iso2);
+  // Build E.164 phone from Kurasi's buyerPhone + phoneCode
+  const phone = buildE164Phone(
+    String(row.buyerPhone || ""),
+    String(row.phoneCode || ""),
+    iso2
+  );
 
   // IMPORTANT: if you require phone non-empty, you can still skip empty here.
   // If you want to store even empty phones, remove this check.
@@ -176,8 +198,7 @@ export function toBuyerInput(row: KurasiShipment): KurasiBuyerInput | null {
     buyerZip: String(row.buyerZip || "").trim(),
     buyerCountry: iso2.toUpperCase(),
     buyerEmail: String(row.buyerEmail ?? "").toLowerCase().trim(),
-    buyerPhone: phone,        // E.164 if valid, RAW otherwise (e.g. "+4479449755416")
-    phoneCode,                // derived from parse or best-effort
+    buyerPhone: phone,        // E.164 format: "+4479449755416"
   };
 }
 

@@ -98,8 +98,18 @@ export default function Combobox<T>({
           setOpen(true);
           setHoverIdx(0);
         }}
-        onFocus={() => setOpen(true)}
-        onClick={() => setOpen(true)}
+        onFocus={(e) => {
+          setQuery(""); // Clear so user can type fresh
+          setOpen(true);
+          // Move cursor to end (no selection)
+          requestAnimationFrame(() => {
+            e.target.setSelectionRange(0, 0);
+          });
+        }}
+        onClick={(e) => {
+          setQuery(""); // Clear so user can type fresh
+          setOpen(true);
+        }}
         onKeyDown={(e) => {
           if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
             setOpen(true);

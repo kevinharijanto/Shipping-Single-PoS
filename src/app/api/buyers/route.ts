@@ -6,9 +6,9 @@ import { normalizeAndSplitPhone } from "@/lib/phone";
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const page     = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "25", 10)));
-    const qRaw     = (url.searchParams.get("q") || "").trim();
+    const qRaw = (url.searchParams.get("q") || "").trim();
 
     // Build WHERE
     let where: any = {};
@@ -19,17 +19,17 @@ export async function GET(req: NextRequest) {
       where = {
         OR: [
           { buyerFullName: { contains: qRaw } }, // SQLite LIKE is case-insensitive for ASCII
-          { buyerCity:     { contains: qRaw } },
-          { buyerCountry:  { contains: qRaw } },
-          { buyerPhone:    { contains: qRaw } },
+          { buyerCity: { contains: qRaw } },
+          { buyerCountry: { contains: qRaw } },
+          { buyerPhone: { contains: qRaw } },
           {
             srns: {
               some: {
                 OR: [
                   ...srnFilter,
                   { kurasiShipmentId: { contains: qRaw } },
-                  { trackingNumber:   { contains: qRaw } },
-                  { trackingSlug:     { contains: qRaw } },
+                  { trackingNumber: { contains: qRaw } },
+                  { trackingSlug: { contains: qRaw } },
                 ],
               },
             },
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
       buyerCountry,
       buyerEmail,
       buyerPhone,
+      phoneCode, // From form: "+1"
     } = body ?? {};
 
     // required checks (for Buyer)
@@ -103,10 +104,22 @@ export async function POST(req: NextRequest) {
     const iso2 = normalizeCountryCode(buyerCountry);
     if (!iso2) return NextResponse.json({ error: "Invalid country code" }, { status: 400 });
 
-    const parsed = normalizeAndSplitPhone(buyerPhone, iso2);
+    // Build combined phone for parsing (same as Customer API)
+    let phoneToNormalize = String(buyerPhone).trim();
+    if (phoneCode && phoneToNormalize.startsWith("0")) {
+      // Remove leading 0 and prepend country code
+      const code = phoneCode.startsWith("+") ? phoneCode : `+${phoneCode}`;
+      phoneToNormalize = `${code}${phoneToNormalize.slice(1)}`;
+    } else if (phoneCode && !phoneToNormalize.startsWith("+")) {
+      // No leading 0 but also no +, prepend country code
+      const code = phoneCode.startsWith("+") ? phoneCode : `+${phoneCode}`;
+      phoneToNormalize = `${code}${phoneToNormalize}`;
+    }
+
+    const parsed = normalizeAndSplitPhone(phoneToNormalize, iso2);
     if (!parsed) return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
 
-    // Upsert Buyer by (country, phone)
+    // Upsert Buyer by (country, phone) - phoneCode removed from schema
     const buyer = await prisma.buyer.upsert({
       where: { buyerCountry_buyerPhone: { buyerCountry: iso2, buyerPhone: parsed.e164 } },
       update: {
@@ -117,7 +130,6 @@ export async function POST(req: NextRequest) {
         buyerState: buyerState ?? "",
         buyerZip,
         buyerEmail: (buyerEmail ?? "").toLowerCase().trim(),
-        phoneCode: parsed.phoneCode,
       },
       create: {
         buyerFullName,
@@ -129,7 +141,6 @@ export async function POST(req: NextRequest) {
         buyerCountry: iso2,
         buyerEmail: (buyerEmail ?? "").toLowerCase().trim(),
         buyerPhone: parsed.e164,
-        phoneCode: parsed.phoneCode,
       },
     });
 

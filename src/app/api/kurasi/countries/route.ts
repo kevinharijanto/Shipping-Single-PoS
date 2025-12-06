@@ -6,10 +6,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const base = process.env.KURASI_BASE ?? "https://api.kurasi.app";
-  const token = cookies().get("kurasi_token")?.value || "";
+  const jar = await cookies();
+  const token = jar.get("kurasi_token")?.value || "";
 
   try {
-    const r = await fetch(`${base}/api/v1/ship/country-list`, {
+    const r = await fetch(`${base}/api/v1/ship/allCountry`, {
       method: "GET",
       headers: {
         accept: "application/json",

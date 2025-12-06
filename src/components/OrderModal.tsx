@@ -247,6 +247,8 @@ export default function OrderModal({
   const [packageDescription, setPackageDescription] = useState<string>(""); // required
   const [hsCode, setHsCode] = useState<string>(""); // 6 or 10
   const [hsError, setHsError] = useState<string | null>(null);
+  const [hsDescription, setHsDescription] = useState<string | null>(null);
+  const [hsLoading, setHsLoading] = useState(false);
 
   // SRN (required + unique)
   const [srn, setSrn] = useState<string>("");
@@ -288,6 +290,8 @@ export default function OrderModal({
     setPackageDescription("");
     setHsCode("");
     setHsError(null);
+    setHsDescription(null);
+    setHsLoading(false);
 
     setSrn("");
     setSrnError(null);
@@ -405,6 +409,60 @@ export default function OrderModal({
       setHsError("Failed to validate HS Code");
     }
   }
+
+  /* Real-time HS Code lookup - fires on every keystroke */
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHsDescription() {
+      const code = hsCode.trim();
+      if (!code) {
+        setHsDescription(null);
+        setHsError(null);
+        return;
+      }
+
+      // Only digits allowed
+      if (!/^\d+$/.test(code)) {
+        setHsDescription(null);
+        setHsError("HS Code must be numeric");
+        return;
+      }
+
+      setHsLoading(true);
+      try {
+        const r = await fetch(`/api/kurasi/validate-hscode?hsCode=${encodeURIComponent(code)}`);
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (r.ok && j?.data?.customsDescription) {
+          setHsDescription(j.data.customsDescription);
+          setHsError(null);
+        } else if (r.ok && j?.status === "SUCCESS") {
+          // Valid but no description
+          setHsDescription(j.data?.customsDescription || "Valid HS Code");
+          setHsError(null);
+        } else {
+          setHsDescription(null);
+          // Show error for invalid codes
+          const msg =
+            j?.returnCode === "007"
+              ? "HSCode must be 6 or 10 digits."
+              : j?.returnCode === "008"
+                ? "Incorrect HSCode"
+                : j?.error || null;
+          setHsError(msg);
+        }
+      } catch {
+        if (!cancelled) {
+          setHsDescription(null);
+        }
+      } finally {
+        if (!cancelled) setHsLoading(false);
+      }
+    }
+    fetchHsDescription();
+    return () => { cancelled = true; };
+  }, [hsCode]);
 
   /* SRN uniqueness check */
   useEffect(() => {
@@ -803,25 +861,26 @@ export default function OrderModal({
                   <label className="block text-sm mb-1">HS Code *</label>
                   <div className="relative">
                     <input
-                      className={`input w-full ${hsError ? "border-red-500" : ""}`}
+                      className={`input w-full pr-10 ${hsError ? "border-red-500" : hsDescription ? "border-green-500" : ""}`}
                       placeholder="6 or 10 digits"
                       value={hsCode}
-                      onChange={(e) => {
-                        setHsCode(e.target.value);
-                        setHsError(null);
-                      }}
-                      onBlur={() => hsCode.trim() && validateHsCode(hsCode)}
+                      onChange={(e) => setHsCode(e.target.value.replace(/\D/g, ""))}
                       required
                     />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600"
-                      title="Validate HS Code"
-                      onClick={() => validateHsCode(hsCode)}
-                    >
-                      🔍
-                    </button>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      {hsLoading ? (
+                        <span className="text-gray-400 text-sm">...</span>
+                      ) : hsDescription ? (
+                        <span className="text-green-500">✓</span>
+                      ) : null}
+                    </div>
                   </div>
+                  {hsLoading && <p className="mt-1 text-xs text-gray-500">Looking up...</p>}
+                  {hsDescription && !hsError && (
+                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                      {hsDescription}
+                    </p>
+                  )}
                   {hsError && <p className="mt-1 text-xs text-red-600">{hsError}</p>}
                 </div>
               </div>
