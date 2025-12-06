@@ -191,14 +191,14 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/orders?status=in_progress&page=1&limit=10",
+              "raw": "{{baseUrl}}/api/orders?status=local:in_progress&page=1&limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["api", "orders"],
               "query": [
                 {
                   "key": "status",
-                  "value": "in_progress",
-                  "description": "Filter by status"
+                  "value": "local:in_progress",
+                  "description": "Filter by status (format: scope:value, e.g., local:in_progress, delivery:not_yet_submit_to_kurasi)"
                 },
                 {
                   "key": "page",
@@ -208,11 +208,11 @@
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Items per page"
+                  "description": "Items per page (max 100)"
                 }
               ]
             },
-            "description": "Get orders with optional filtering and pagination"
+            "description": "Get orders with optional filtering and pagination. Returns orders with customer, buyer, package, and SRN details. Delivery statuses: not_yet_submit_to_kurasi, submitted_to_Kurasi, label_confirmed, ready_to_send, tracking_received"
           }
         },
         {
@@ -227,14 +227,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerId\": \"cus_123\",\n  \"buyerId\": 1,\n  \"service\": \"EP\",\n  \"notes\": \"Handle with care\",\n  \"weightGrams\": 500,\n  \"totalValue\": 25.99,\n  \"packageDescription\": \"Electronics\",\n  \"lengthCm\": 10,\n  \"widthCm\": 10,\n  \"heightCm\": 5,\n  \"quotedAmountMinor\": 2599,\n  \"shippingPriceMinor\": 1299,\n  \"currency\": \"USD\",\n  \"paymentMethod\": \"qris\",\n  \"sku\": \"ELEC-001\",\n  \"hsCode\": \"490900\",\n  \"countryOfOrigin\": \"ID\"\n}"
+              "raw": "{\n  \"customerId\": \"cus_123\",\n  \"buyerId\": 1,\n  \"service\": \"EP\",\n  \"weightGrams\": 500,\n  \"totalValue\": \"25.99\",\n  \"currency\": \"USD\",\n  \"package\": {\n    \"packageDescription\": \"Electronics\",\n    \"hsCode\": \"490900\"\n  },\n  \"srn\": 2190,\n  \"externalRef\": \"EXT-12345\",\n  \"saleChannel\": \"Ebay\",\n  \"taxReference\": \"VAT\",\n  \"taxNumber\": \"GB123456789\",\n  \"placedAt\": \"2025-10-19T14:57:00.000Z\",\n  \"notes\": \"Handle with care\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/orders",
               "host": ["{{baseUrl}}"],
               "path": ["api", "orders"]
             },
-            "description": "Create a new order"
+            "description": "Create a new order. Required fields: customerId, buyerId, service (EP/ES/EX/PP), weightGrams, totalValue, currency, package.packageDescription, and srn (unique Sale Record Number). Default delivery status: not_yet_submit_to_kurasi"
           }
         },
         {
@@ -243,11 +243,11 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/orders/order_123",
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "orders", "order_123"]
+              "path": ["api", "orders", "{{orderId}}"]
             },
-            "description": "Get a specific order by ID"
+            "description": "Get a specific order by ID with full details including customer, buyer, and package information"
           }
         },
         {
@@ -262,14 +262,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"Updated notes\",\n  \"localStatus\": \"paid\",\n  \"deliveryStatus\": \"label_confirmed\",\n  \"weightGrams\": 600,\n  \"service\": \"ES\"\n}"
+              "raw": "{\n  \"notes\": \"Updated notes\",\n  \"localStatus\": \"paid\",\n  \"deliveryStatus\": \"submitted_to_Kurasi\",\n  \"paymentMethod\": \"bank_transfer\",\n  \"externalRef\": \"EXT-12345-UPDATED\",\n  \"labelId\": \"LBL-12345\",\n  \"trackingLink\": \"https://track.example.com/12345\",\n  \"srn\": 2191,\n  \"weightGrams\": 600,\n  \"lengthCm\": 15,\n  \"widthCm\": 12,\n  \"heightCm\": 8,\n  \"service\": \"ES\",\n  \"currency\": \"USD\",\n  \"sku\": \"ELEC-001-UPD\",\n  \"hsCode\": \"490900\",\n  \"countryOfOrigin\": \"ID\",\n  \"packageDescription\": \"Electronics (Updated)\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/orders/order_123",
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "orders", "order_123"]
+              "path": ["api", "orders", "{{orderId}}"]
             },
-            "description": "Update an order by ID"
+            "description": "Update an order by ID. Can update order-level fields (notes, statuses, payment, etc.) and package details (weight, dimensions, service, etc.). Delivery statuses: not_yet_submit_to_kurasi, submitted_to_Kurasi, label_confirmed, ready_to_send, tracking_received"
           }
         },
         {
@@ -278,11 +278,33 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/orders/order_123",
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "orders", "order_123"]
+              "path": ["api", "orders", "{{orderId}}"]
             },
-            "description": "Delete an order by ID"
+            "description": "Delete an order by ID. Also deletes associated package details and removes unused SRN entries."
+          }
+        },
+        {
+          "name": "Create Shipment with Kurasi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/kurasi/shipment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "kurasi", "shipment"]
+            },
+            "description": "Create a shipment with Kurasi API. This will update the order status to 'submitted_to_Kurasi' and then to 'label_confirmed' upon success. Returns a KRS number (e.g., KRS2510190195) which is saved in the database."
           }
         }
       ]
@@ -425,14 +447,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": \"order_123\"\n}"
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/kurasi/shipment",
               "host": ["{{baseUrl}}"],
               "path": ["api", "kurasi", "shipment"]
             },
-            "description": "Create shipment with Kurasi API"
+            "description": "Create a shipment with Kurasi API. This will update the order status to 'submitted_to_Kurasi' and then to 'label_confirmed' upon success. Returns a KRS number (e.g., KRS2510190195) which is saved in the database."
           }
         },
         {
@@ -462,6 +484,12 @@
       "key": "baseUrl",
       "value": "http://localhost:3000",
       "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "order_123",
+      "type": "string",
+      "description": "ID of the order to get/update/delete"
     }
   ]
 }

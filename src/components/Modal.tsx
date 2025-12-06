@@ -49,7 +49,7 @@ export default function Modal({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/30"
         onClick={onClose}
       />
 
@@ -59,10 +59,10 @@ export default function Modal({
         <div className="min-h-full flex items-start justify-center p-4 sm:p-6">
           {/* Panel */}
           <div
-            className={`w-full ${sizeToWidth[size]} rounded-xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10`}
+            className={`w-full ${sizeToWidth[size]} rounded-xl bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[var(--border-color)]`}
           >
             {/* Header (sticky so actions always visible) */}
-            <div className="sticky top-0 z-10 px-4 sm:px-6 py-3 border-b bg-white/90 dark:bg-gray-900/90 backdrop-blur border-gray-200 dark:border-gray-800">
+            <div className="sticky top-0 z-10 px-4 sm:px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/95 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 id="modal-title" className="text-base font-semibold">
                   {title}
@@ -70,7 +70,7 @@ export default function Modal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="btn btn-sm"
+                  className="btn btn-sm btn-default text-[var(--text-muted)] hover:text-[var(--text-main)]"
                   aria-label="Close"
                 >
                   Close

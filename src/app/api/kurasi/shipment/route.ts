@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { cookies } from "next/headers";
 import axios from "axios";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+import type { CountryCode } from "libphonenumber-js";
 
 const prisma = new PrismaClient();
 
@@ -32,26 +35,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get Kurasi auth token from environment or cookies
-    let authToken = process.env.KURASI_TOKEN || process.env.X_SHIP_AUTH_TOKEN || '89068218-5dec-47b7-9e91-a582ac0836f1';
+    // Get Kurasi auth token from cookies (same approach as other Kurasi APIs)
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get("kurasi_token")?.value || "";
     
-    // If not in env, try to get from cookies
     if (!authToken) {
-      const cookies = request.cookies;
-      const kurasiCookie = cookies.get('kurasi_auth_token');
-      if (kurasiCookie) {
-        authToken = kurasiCookie.value;
-      }
-    }
-
-    if (!authToken) {
+      console.error("Kurasi auth token not found in cookies");
       return NextResponse.json(
-        { error: "Kurasi auth token not found" },
+        { error: "Kurasi auth token not found. Please log in at /kurasi first." },
         { status: 401 }
       );
     }
+    
+    console.log("Using auth token from cookie:", authToken ? `${authToken.slice(0, 6)}…${authToken.slice(-4)}` : "null");
+
+    // Update order status to submitted_to_Kurasi first
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { deliveryStatus: "submitted_to_Kurasi" } as any,
+    });
 
     // Prepare shipment data for Kurasi API
+    const rawService = (order.package.service || "").toUpperCase();
+    const ALLOWED_SERVICES = ["EP","ES","EX","PP"] as const;
+    const serviceName = ALLOWED_SERVICES.find(code => rawService.startsWith(code)) ?? "EX";
+    const isExpress = serviceName === "EX";
+ 
+    const countryHintRaw = (order.buyer.buyerCountry || "").toUpperCase();
+    const defaultCountry: CountryCode | undefined = /^[A-Z]{2}$/.test(countryHintRaw) ? (countryHintRaw as CountryCode) : undefined;
+ 
+    const parsedPhone = order.buyer.buyerPhone
+      ? parsePhoneNumberFromString(
+          order.buyer.buyerPhone,
+          defaultCountry ? { defaultCountry } : undefined
+        )
+      : null;
+ 
+    const buyerPhoneNational = parsedPhone && parsedPhone.isValid()
+      ? parsedPhone.nationalNumber
+      : (order.buyer.buyerPhone || "").replace(/\D/g, "");
+ 
+    const phoneCodeDigits = (() => {
+      const pcRaw =
+        order.buyer.phoneCode ||
+        (parsedPhone && parsedPhone.isValid() ? String(parsedPhone.countryCallingCode) : "");
+      return String(pcRaw || "").replace(/^\+/, "").replace(/\D/g, "") || "1";
+    })();
+ 
     const shipmentData = {
       buyerFullName: order.buyer.buyerFullName,
       buyerAddress1: order.buyer.buyerAddress1,
@@ -60,36 +90,41 @@ export async function POST(request: NextRequest) {
       buyerState: order.buyer.buyerState,
       buyerZip: order.buyer.buyerZip,
       buyerCountry: order.buyer.buyerCountry,
-      buyerPhone: order.buyer.buyerPhone,
-      serviceName: order.package.service.toUpperCase(), // Convert to uppercase
-      packageDesc: "Package", // Default description
-      saleRecordNumber: order.buyer.saleRecordNumber,
+      buyerPhone: buyerPhoneNational,
+      serviceName: serviceName,
+      packageDesc: order.package.packageDescription || "Package",
+      saleRecordNumber: order.srnId?.toString() || "",
       totalWeight: order.package.weightGrams?.toString() || "100",
-      totalValue: order.quotedAmountMinor ? order.quotedAmountMinor / 100 : 7,
-      currency: order.currency || "USD",
-      phoneCode: order.buyer.phoneCode || "1",
-      hsCode: (order.package as any).hsCode || "",
+      // totalValue: number for Express, string for non-Express
+      totalValue: isExpress ? (Number(order.package.totalValue) || 7) : String(Number(order.package.totalValue) || 7),
+      currency: order.package.currency || "USD",
+      phoneCode: phoneCodeDigits,
+      // hsCode: empty for Express, default/value for non-Express
+      hsCode: isExpress ? "" : (order.package.hsCode || "490900"),
       shipmentRemark: order.notes || "",
       companyName: "",
-      buyerEmail: "",
+      buyerEmail: order.buyer.buyerEmail || "",
       isNoPhone: false,
       shipmentCategory: "M",
       collectTaxId: [],
       valueAddedServiceInsurance: [],
       valueAddedServiceSignature: [],
-      contentItem: [
-        {
-          description: "Package",
-          quantity: "1",
-          value: order.quotedAmountMinor ? (order.quotedAmountMinor / 100).toString() : "7",
-          itemWeight: order.package.weightGrams?.toString() || "100",
-          currency: order.currency || "USD",
-          sku: (order.package as any).sku || "",
-          hsCode: (order.package as any).hsCode || "490900",
-          countryOfOrigin: (order.package as any).countryOfOrigin || "ID",
-        },
-      ],
-      saleChannel: "",
+      // contentItem: one item for Express, empty array for non-Express
+      contentItem: isExpress
+        ? [
+            {
+              description: order.package.packageDescription || "Package",
+              quantity: "1",
+              value: String(Number(order.package.totalValue) || 7),
+              itemWeight: order.package.weightGrams?.toString() || "100",
+              currency: order.package.currency || "USD",
+              sku: order.package.sku || "",
+              hsCode: order.package.hsCode || "490900",
+              countryOfOrigin: order.package.countryOfOrigin || "ID",
+            },
+          ]
+        : [],
+      saleChannel: order.saleChannel || "",
       ioss: "",
       iossCheck: false,
     };
@@ -97,44 +132,64 @@ export async function POST(request: NextRequest) {
     // Log the payload being sent to Kurasi
     console.log("Kurasi shipment payload:", JSON.stringify(shipmentData, null, 2));
     
+    // Prepare headers for Kurasi API
+    const headers = {
+      accept: "application/json, text/plain, */*, text/csv",
+      "content-type": "application/json; charset=UTF-8",
+      origin: "https://kurasi.app",
+      referer: "https://kurasi.app/",
+      "x-requested-with": "XMLHttpRequest",
+      "x-ship-auth-token": authToken,
+    };
+    
+    console.log("Kurasi API headers:", JSON.stringify(headers, null, 2));
+    
     // Make API call to Kurasi
     const response = await axios.post(
       "https://api.kurasi.app/api/v1/createShipment",
       shipmentData,
-      {
-        headers: {
-          accept: "application/json, text/plain, */*, text/csv",
-          "content-type": "application/json; charset=UTF-8",
-          origin: "https://kurasi.app",
-          referer: "https://kurasi.app/",
-          "x-requested-with": "XMLHttpRequest",
-          "x-ship-auth-token": authToken,
-        },
-      }
+      { headers }
     );
 
-    // Extract tracking number from response
-    const trackingNumber = response.data.kurasiShipmentId || response.data.trackingNumber;
+    // Extract KRS number from response
+    const krsNumber = response.data.data?.shipmentId;
 
-    if (!trackingNumber) {
+    if (!krsNumber) {
+      console.error("No KRS number in Kurasi response:", JSON.stringify(response.data, null, 2));
       return NextResponse.json(
-        { error: "No tracking number received from Kurasi" },
+        {
+          error: "No KRS number received from Kurasi",
+          details: {
+            response: response.data,
+            message: "Kurasi API response does not contain a shipmentId"
+          }
+        },
         { status: 500 }
       );
     }
 
-    // Update order with tracking number
+    // Update order with KRS tracking number (keep status as submitted_to_Kurasi)
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        krsTrackingNumber: trackingNumber,
-        deliveryStatus: "label_confirmed",
+        krsTrackingNumber: krsNumber,
+        // deliveryStatus remains "submitted_to_Kurasi" until manually updated
       } as any,
     });
 
+    // Also update the SRN record with the KRS number
+    if (order.srnId) {
+      await prisma.buyerSRN.update({
+        where: { saleRecordNumber: order.srnId },
+        data: {
+          kurasiShipmentId: krsNumber,
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      trackingNumber,
+      krsNumber,
       shipmentData: response.data,
     });
   } catch (error: any) {
@@ -142,16 +197,36 @@ export async function POST(request: NextRequest) {
     
     // Provide more detailed error information
     let errorMessage = "Failed to create shipment";
+    let errorDetails: any = null;
+    
     if (error.response) {
-      errorMessage = `Kurasi API error: ${error.response.data?.message || error.response.statusText}`;
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      errorMessage = `Kurasi API error: ${error.response.status} ${error.response.statusText}`;
+      errorDetails = {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      };
+      console.error("Kurasi API error response:", JSON.stringify(errorDetails, null, 2));
     } else if (error.request) {
+      // The request was made but no response was received
       errorMessage = "No response from Kurasi API";
+      errorDetails = { request: error.request };
+      console.error("No response from Kurasi API:", error.request);
     } else {
+      // Something happened in setting up the request that triggered an Error
       errorMessage = error.message;
+      errorDetails = { message: error.message, stack: error.stack };
+      console.error("Request setup error:", error.message);
     }
 
     return NextResponse.json(
-      { error: errorMessage },
+      {
+        error: errorMessage,
+        details: errorDetails
+      },
       { status: 500 }
     );
   }

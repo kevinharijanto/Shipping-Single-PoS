@@ -21,6 +21,8 @@ const BLOCK_META: Record<string, { code: "EP" | "ES" | "EX" | "PP"; key: keyof R
   ppr: { code: "PP", key: "ppr" },
 };
 
+import { cookies } from "next/headers";
+
 export async function POST(req: Request) {
   const base = process.env.KURASI_BASE ?? "https://api.kurasi.app";
 
@@ -36,10 +38,14 @@ export async function POST(req: Request) {
     supportedCountryCode: String(inBody.supportedCountryCode ?? ""),
   };
 
+  const jar = await cookies();
+  const token = jar.get("kurasi_token")?.value || "";
+
   // Minimal headers: EXACTLY like your cURL
   const headers: HeadersInit = {
     Accept: "application/json",
     "Content-Type": "application/json; charset=utf-8",
+    "X-Ship-Auth-Token": token,
   };
 
   try {

@@ -11,6 +11,7 @@ import {
   type Region,
 } from "@/lib/regions";
 import Combobox from "@/components/Combobox";
+import { getPhoneCodeForCountry } from "@/lib/countryMapping";
 
 type Mode = "create" | "edit";
 
@@ -117,6 +118,17 @@ export default function RecipientModal({
     setForm((s) => ({ ...s, buyerState: code }));
   }
 
+  // Static phone code helper (digits only, no "+")
+  function safePhoneCode(countryCode: string): string {
+    try {
+      if (!countryCode) return "";
+      const pc = getPhoneCodeForCountry(countryCode || "");
+      return String(pc || "").replace(/\D/g, "");
+    } catch {
+      return "";
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -220,16 +232,24 @@ export default function RecipientModal({
             {/* Phone */}
             <div className="md:col-span-2">
               <label className="block text-sm mb-1">Phone Number *</label>
-              <input
-                name="buyerPhone"
-                value={form.buyerPhone}
-                onChange={onChange}
-                className="input w-full dark:bg-gray-800 dark:border-gray-700 dark:placeholder-gray-400
-                           focus:outline-none focus:ring-2 focus:ring-primary/40"
-                required
-                placeholder="+62…"
-                autoComplete="tel"
-              />
+              <div className="flex items-center gap-2">
+                <div className="px-2 py-2 text-sm rounded-md border bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+                  +{safePhoneCode(form.buyerCountry) || ""}
+                </div>
+                <input
+                  name="buyerPhone"
+                  value={form.buyerPhone}
+                  onChange={onChange}
+                  className="input w-full dark:bg-gray-800 dark:border-gray-700 dark:placeholder-gray-400
+                             focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  required
+                  placeholder="e.g., 81234567890"
+                  autoComplete="tel"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Enter local number only; country code will be sent separately.
+              </p>
             </div>
 
             {/* Email (optional) */}
@@ -291,6 +311,9 @@ export default function RecipientModal({
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Stored as country code (e.g., ID, US, GB).
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Phone code: {getPhoneCodeForCountry(form.buyerCountry) || "—"}
               </p>
             </div>
 

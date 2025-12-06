@@ -80,7 +80,7 @@ export default function BuyersPage() {
     buyerPhone?: string;
     buyerEmail?: string;
     buyerAddress1?: string;
-    buyerAddress2?: string; 
+    buyerAddress2?: string;
     buyerCity?: string;
     buyerState?: string;
     buyerZip?: string;
@@ -212,7 +212,7 @@ export default function BuyersPage() {
       )}
 
       {/* Desktop table */}
-      <div className="card overflow-hidden hidden xl:block">
+      <div className="card overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
@@ -226,9 +226,8 @@ export default function BuyersPage() {
               </tr>
             </thead>
             <tbody
-              className={`bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700 transition-opacity ${
-                loading ? "opacity-60" : "opacity-100"
-              }`}
+              className={`bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700 transition-opacity ${loading ? "opacity-60" : "opacity-100"
+                }`}
             >
               {filtered.length === 0 ? (
                 <tr>
@@ -275,7 +274,7 @@ export default function BuyersPage() {
                               id: b.id,
                               buyerFullName: b.buyerFullName,
                               buyerPhone: b.buyerPhone,
-                              buyerEmail: b.buyerEmail ?? "", 
+                              buyerEmail: b.buyerEmail ?? "",
                               buyerAddress1: b.buyerAddress1,
                               buyerAddress2: b.buyerAddress2 ?? "",
                               buyerCity: b.buyerCity,
@@ -307,7 +306,7 @@ export default function BuyersPage() {
       </div>
 
       {/* Mobile cards */}
-      <div className="xl:hidden space-y-4">
+      <div className="md:hidden space-y-4">
         {filtered.length === 0 ? (
           <div className="card p-6 text-center text-gray-500 dark:text-gray-400">
             {searchTerm ? "No recipients match your search." : "No recipients yet."}

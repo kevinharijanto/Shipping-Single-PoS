@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ComboBox from "@/components/Combobox";
+import { countryMap } from "@/lib/countryMapping";
+import { useAuth } from "@/contexts/AuthContext";
 
 /* ===== Types ===== */
 type AvailableItem = {
@@ -44,7 +47,7 @@ function formatCurrency(n: number, currency = "IDR", locale = "id-ID") {
 
 /* ===== Page ===== */
 export default function QuotePage() {
-  // Kurasi login is managed globally on /kurasi; Quote works without explicit login here.
+  const { isAuthenticated } = useAuth();
 
   // Quote inputs
   const [country, setCountry] = useState("Albania");
@@ -52,9 +55,9 @@ export default function QuotePage() {
   const [currency, setCurrency] = useState("IDR");
 
   const [actualWeight, setActualWeight] = useState("100");
-  const [actualLength, setActualLength] = useState("100");
-  const [actualWidth, setActualWidth] = useState("100");
-  const [actualHeight, setActualHeight] = useState("100");
+  const [actualLength, setActualLength] = useState("0");
+  const [actualWidth, setActualWidth] = useState("0");
+  const [actualHeight, setActualHeight] = useState("0");
 
   // Data
   const [countries, setCountries] = useState<CountryItem[]>([]);
@@ -65,7 +68,7 @@ export default function QuotePage() {
   // Load countries if authenticated; calculator works without it
   useEffect(() => {
     loadCountries();
-  }, []);
+  }, [isAuthenticated]);
 
   // Persist non-sensitive inputs
   useEffect(() => {
@@ -91,9 +94,9 @@ export default function QuotePage() {
       setOrigin(j.origin ?? "ID");
       setCurrency(j.currency ?? "IDR");
       setActualWeight(j.actualWeight ?? "100");
-      setActualLength(j.actualLength ?? "100");
-      setActualWidth(j.actualWidth ?? "100");
-      setActualHeight(j.actualHeight ?? "100");
+      setActualLength(j.actualLength ?? "0");
+      setActualWidth(j.actualWidth ?? "0");
+      setActualHeight(j.actualHeight ?? "0");
     }
   }, []);
 
@@ -102,18 +105,40 @@ export default function QuotePage() {
   // Logout handled on /kurasi
 
   async function loadCountries(): Promise<boolean> {
-    try {
-      const res = await fetch("/api/kurasi/countries", { cache: "no-store" });
-      const j = await res.json();
-      if (!res.ok || j.status !== "SUCCESS") return false;
-      setCountries(j.data || []);
-      if (!(j.data || []).find((c: CountryItem) => c.country === country) && (j.data || []).length > 0) {
-        setCountry(j.data[0].country);
+    if (isAuthenticated) {
+      try {
+        const r = await fetch("/api/kurasi/countries");
+        const j = await r.json();
+        if (r.ok && j.status === "SUCCESS" && Array.isArray(j.data)) {
+          setCountries(j.data);
+          // Set default if current selection invalid/missing
+          if (!j.data.find((c: CountryItem) => c.country === country) && j.data.length > 0) {
+            // Keep current if meaningful, else first
+            // safe to leave as is if we want to trust localstorage
+          }
+          return true;
+        }
+      } catch (e) {
+        console.error("Failed to load dynamic countries", e);
       }
-      return true;
-    } catch {
-      return false;
     }
+
+    // Fallback / Offline: build list from static countryMapping.ts
+    const list: CountryItem[] = Object.entries(countryMap)
+      .map(([shortName, name]) => ({
+        country: name,
+        shortName,
+        zone: 0,
+        iossCode: "",
+      }))
+      .sort((a, b) => a.country.localeCompare(b.country));
+
+    setCountries(list);
+    if (!list.find((c) => c.country === country) && list.length > 0) {
+      // only reset if absolutely not found and no local state
+      // setCountry(list[0].country);
+    }
+    return true;
   }
 
   async function fetchQuote() {
@@ -193,29 +218,34 @@ export default function QuotePage() {
         <p className="text-gray-600">Get shipping quotes for international deliveries</p>
       </div>
 
-      {/* Kurasi Auth is now separate */}
-      <section className="card p-4 space-y-2">
-        <h2 className="font-semibold">Kurasi Authentication</h2>
-        <p className="text-sm text-gray-600">
-          Login is handled on the Kurasi Auth tab. The calculator works without login; if authenticated, country list will load automatically.
-        </p>
-        <a href="/kurasi" className="btn">Open Kurasi Auth</a>
-      </section>
+      {/* Kurasi Auth Status */}
+      {!isAuthenticated && (
+        <section className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Log in to load the full country list from Kurasi. Providing correct inputs works without login.
+            </p>
+            {/* The global sidebar has the login button, but we can add a trigger here if we expose it from context, 
+                however context only exposes login function, not the UI state of the sidebar modal. 
+                For now, just directing them to the sidebar is simplest, or we can add a local login form. 
+                Given the sidebar is always visible, pointing to it is fine. 
+                Or even better, we check session on mount (which AuthContext does).
+            */}
+          </div>
+        </section>
+      )}
       {/* Quote Form */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-700">Destination Country</span>
-          <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
-            {countries.length > 0 ? (
-              countries.map((c) => (
-                <option key={c.shortName} value={c.country}>
-                  {c.country}
-                </option>
-              ))
-            ) : (
-              <option value={country}>{country}</option>
-            )}
-          </select>
+          <ComboBox
+            items={countries}
+            value={country}
+            onChange={(key) => setCountry(key)}
+            getKey={(c) => c.country}
+            getLabel={(c) => c.country}
+            ariaLabel="Destination Country"
+          />
         </label>
 
         <label className="flex flex-col gap-1">
@@ -301,9 +331,8 @@ export default function QuotePage() {
                   <tr key={s.code} className={`border-t ${unavailable ? "opacity-50" : ""}`}>
                     <td className="p-2">
                       <span
-                        className={`inline-block rounded px-2 py-0.5 ${
-                          isCheapest ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        }`}
+                        className={`inline-block rounded px-2 py-0.5 ${isCheapest ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                          }`}
                       >
                         {s.code}
                         {isCheapest ? " • cheapest" : ""}

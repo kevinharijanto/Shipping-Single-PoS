@@ -2,7 +2,6 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -14,14 +13,6 @@ enum PaymentMethod {
   bank_transfer
 }
 
-enum Service {
-  economy
-  express
-  economy_standard
-  economy_plus
-  packet_premium
-}
-
 enum LocalDeliveryStatus {
   in_progress
   on_the_way
@@ -30,10 +21,24 @@ enum LocalDeliveryStatus {
 }
 
 enum DeliveryStatus {
-  not_yet_create_label
+  not_yet_submit_to_kurasi
+  submitted_to_Kurasi
   label_confirmed
   ready_to_send
   tracking_received
+}
+
+enum SaleChannel {
+  Ebay
+  Etsy
+  Other
+}
+
+enum TaxReference {
+  SST
+  VAT
+  GST
+  Other
 }
 
 // ---------- Core people ----------
@@ -51,25 +56,26 @@ model Customer {
 }
 
 model Buyer {
-  id                String    @id @default(uuid())
-  buyerFullName     String 
-  buyerAddress1     String 
-  buyerAddress2     String 
-  buyerCity         String 
-  buyerState        String 
-  buyerZip          String 
-  buyerCountry      String 
-  buyerEmail        String @default("") 
-  buyerPhone        String
-  phoneCode         String @default("")  
-  
+  id            String   @id @default(uuid())
+  buyerFullName String
+  buyerAddress1 String
+  buyerAddress2 String
+  buyerCity     String
+  buyerState    String
+  buyerZip      String
+  buyerCountry  String     // ISO-2
+  buyerEmail    String @default("")
+  buyerPhone    String
+  phoneCode     String @default("")
+
   srns   BuyerSRN[]
   orders Order[]
 
-  // Dedupe “person” primarily by phone per country
   @@unique([buyerCountry, buyerPhone])
   @@index([buyerEmail])
   @@index([buyerFullName, buyerCity])
+  @@index([buyerPhone])
+  @@index([buyerCountry])
 }
 
 model BuyerSRN {
@@ -77,16 +83,19 @@ model BuyerSRN {
   buyerId          String
   buyer            Buyer   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
 
-  kurasiShipmentId String?  @unique// e.g. "KRS2205130138"
-  trackingNumber   String?  // e.g. "LQ082058163SG"
-  trackingSlug     String?  // e.g. "quantium"
+  kurasiShipmentId String? @unique
+  trackingNumber   String?
+  trackingSlug     String?
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  orders Order[]   // reverse relation for orders.srn
+
   @@index([kurasiShipmentId])
   @@index([trackingNumber])
   @@index([trackingSlug])
+  @@index([buyerId])
 }
 
 // ---------- Orders & package ----------
@@ -98,30 +107,40 @@ model Order {
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerId String
 
-  // Link to Buyer (int)
   buyerId String
-  buyer   Buyer @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  buyer   Buyer    @relation(fields: [buyerId], references: [id], onDelete: Restrict)
 
   package   PackageDetail @relation(fields: [packageId], references: [id], onDelete: Cascade)
   packageId String        @unique
 
-  quotedAmountMinor Int?
+  // Prices kept for future usage; harmless if null
+  quotedAmountMinor  Int?
   shippingPriceMinor Int?
-  currency          String?
-  pricingSource     String?
+  currency           String?
+  pricingSource      String?
 
   localStatus    LocalDeliveryStatus @default(in_progress)
-  deliveryStatus DeliveryStatus      @default(not_yet_create_label)
+  deliveryStatus DeliveryStatus      @default(not_yet_submit_to_kurasi)
   paymentMethod  PaymentMethod       @default(qris)
 
+  // Optional sender reference (shop's order id)
   externalRef  String?
-  labelId      String?
-  trackingLink String?
+
+  // SRN link (unique: one SRN → at most one order)
+  srnId Int?      @unique
+  srn   BuyerSRN? @relation(fields: [srnId], references: [saleRecordNumber])
+
+  // Marketplace/tax meta (optional)
+  saleChannel  SaleChannel?
+  taxReference TaxReference?
+  taxNumber    String?
+
+  labelId           String?
+  trackingLink      String?
   krsTrackingNumber String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 
   @@index([placedAt])
   @@index([localStatus, deliveryStatus])
@@ -130,24 +149,24 @@ model Order {
 }
 
 model PackageDetail {
-  id              String   @id @default(cuid())
-  weightGrams     Int?
-  totalValue      Decimal?
+  id                 String   @id @default(cuid())
+  weightGrams        Int?
+  totalValue         Decimal?
   packageDescription String?
-  lengthCm        Decimal?
-  widthCm         Decimal?
-  heightCm        Decimal?
-  volumetricGrams Int?
-  service         Service
+  lengthCm           Decimal?
+  widthCm            Decimal?
+  heightCm           Decimal?
+  volumetricGrams    Int?
 
-  // Redundant package-level details
-  currency        String?
-  sku             String?
-  hsCode          String?
-  countryOfOrigin String?
+  // CHANGED: use raw Kurasi code "EP|ES|EX|PP" (string)
+  service            String
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  order           Order?
+  currency           String?   // totalValue currency
+  sku                String?
+  hsCode             String?
+  countryOfOrigin    String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  order              Order?
 }
-

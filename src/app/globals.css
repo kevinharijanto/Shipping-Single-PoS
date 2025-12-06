@@ -2,150 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Variables for theming */
+/* CSS Variables for theming - Notion B&W + Pink Accent */
 :root {
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-light: #e0e7ff;
+  /* Brand */
+  --color-primary: #db7b8f;
+  --color-primary-hover: #ce5a71;
+  --color-primary-light: #fcecef;
+
+  /* Notion Light Palette - Strict */
+  --bg-app: #FFFFFF;
+  --bg-sidebar: #FBFBFA;
+  --bg-card: #FFFFFF;
+  --text-main: #37352F;
+  --text-muted: #9B9A97;
+  --border-color: #E9E9E7;
 }
 
 .dark {
-  --color-primary: #818cf8;
-  --color-primary-hover: #6366f1;
-  --color-primary-light: #312e81;
+  /* Brand */
+  --color-primary: #e69ba7;
+  --color-primary-hover: #db7b8f;
+  --color-primary-light: #2d2426;
+
+  /* Notion Dark Palette - Strict */
+  --bg-app: #191919;
+  --bg-sidebar: #202020;
+  --bg-card: #202020;
+  --text-main: #D4D4D4;
+  --text-muted: #787774;
+  --border-color: #2F2F2F;
 }
 
-/* NextAdminHQ-style components */
-.card {
-  @apply rounded-[10px] border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800;
+@layer base {
+  body {
+    @apply bg-[var(--bg-app)] text-[var(--text-main)] antialiased transition-colors duration-200;
+  }
 }
 
-.btn {
-  @apply rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700;
+/* Notion-ish Components (Flat, Minimal, Borders) */
+@layer components {
+  .card {
+    @apply rounded-md border border-[var(--border-color)] bg-[var(--bg-card)];
+    box-shadow: none;
+    /* Flat design */
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md border border-transparent px-3 py-1.5 text-sm font-medium transition-all disabled:opacity-60;
+  }
+
+  .btn-default {
+    @apply border border-[var(--border-color)] bg-white text-[var(--text-main)] hover:bg-[var(--bg-sidebar)] dark:bg-[var(--bg-sidebar)] dark:text-[var(--text-main)] dark:border-[var(--border-color)] dark:hover:bg-[#2a2a2a];
+  }
+
+  .btn-primary {
+    @apply text-white shadow-sm hover:opacity-90 active:scale-95;
+    background-color: var(--color-primary);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+
+  .btn-secondary {
+    @apply bg-[var(--bg-sidebar)] text-[var(--text-main)] hover:bg-[#ebebeb] dark:bg-[#2a2a2a] dark:text-[#e0e0e0] dark:hover:bg-[#333333];
+  }
+
+  .btn-outline {
+    @apply bg-transparent border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-sidebar)] dark:text-[var(--text-main)] dark:border-[var(--border-color)] dark:hover:bg-[#2a2a2a];
+  }
+
+  .input {
+    @apply rounded-md border border-[var(--border-color)] bg-transparent px-3 py-1.5 text-sm outline-none transition-all placeholder-[var(--text-muted)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] dark:text-[var(--text-main)];
+  }
+
+  /* Utility to force sidebar bg */
+  .bg-sidebar {
+    background-color: var(--bg-sidebar);
+  }
 }
 
-.btn-default {
-  @apply bg-white text-gray-900 hover:bg-gray-50 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700;
-}
-
-.btn-primary {
-  @apply text-white hover:opacity-90;
-  background-color: var(--color-primary);
-}
-
-.btn-primary:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.btn-secondary {
-  @apply bg-gray-600 text-white hover:bg-gray-700;
-}
-
-.btn-success {
-  @apply bg-green-600 text-white hover:bg-green-700;
-}
-
-.btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
-}
-
-.btn-sm {
-  @apply px-3 py-1.5 text-xs;
-}
-
-.btn-outline {
-  @apply bg-transparent text-gray-700 border-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800;
-}
-
-.input {
-  @apply rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white;
-}
-
-/* Custom focus ring for primary elements */
-.focus-ring-primary {
-  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-800;
-}
-
-/* Text colors for dark mode */
-.dark\:text-dark {
-  color: #1f2937;
-}
-
-.dark\:text-dark-4 {
-  color: #6b7280;
-}
-
-.dark\:text-dark-5 {
-  color: #9ca3af;
-}
-
-.dark\:text-dark-6 {
-  color: #d1d5db;
-}
-
-/* Background colors for dark mode */
-.dark\:bg-gray-dark {
-  background-color: #1f2937;
-}
-
-.dark\:bg-dark-2 {
-  background-color: #374151;
-}
-
-.dark\:bg-dark-3 {
-  background-color: #4b5563;
-}
-
-/* Border colors for dark mode */
-.dark\:border-dark-3 {
-  border-color: #4b5563;
-}
-
-.dark\:border-dark-4 {
-  border-color: #6b7280;
-}
-
-.dark\:border-stroke-dark {
-  border-color: #374151;
-}
-
-/* Shadow for dark mode cards */
-.dark\:shadow-card {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-}
-
-/* Custom scrollbar */
+/* Custom Scrollbar (Minimal) */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-track {
-  background: #374151;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #6b7280;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* Utility classes */
+/* Utilities */
+.text-muted {
+  color: var(--text-muted);
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

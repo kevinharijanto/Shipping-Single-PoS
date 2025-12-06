@@ -25,6 +25,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const systemPreference = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       setThemeState(systemPreference);
     }
+
+    // Force Pink Theme
+    const root = document.documentElement;
+    root.style.setProperty("--color-primary", "#ec4899");
+    root.style.setProperty("--color-primary-hover", "#db2777");
+    root.style.setProperty("--color-primary-light", "#fce7f3");
   }, []);
 
   useEffect(() => {

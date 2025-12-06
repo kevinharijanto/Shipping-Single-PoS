@@ -29,7 +29,7 @@ export default function Combobox<T>({
   getKey,
   getLabel,
   placeholder = "Type to search…",
-  className = "input w-full dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/40",
+  className = "input w-full",
   allowCustom = false,
   disabled = false,
   emptyText = "No matches",
@@ -135,10 +135,10 @@ export default function Combobox<T>({
         <div
           id="cb-popover"
           role="listbox"
-          className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg"
+          className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg"
         >
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">
               {allowCustom && query.trim()
                 ? `Press Enter to use “${query.trim()}”`
                 : emptyText}
@@ -158,9 +158,8 @@ export default function Combobox<T>({
                     e.preventDefault();
                     selectKey(k);
                   }}
-                  className={`px-3 py-2 cursor-pointer text-sm ${
-                    active ? "bg-gray-100 dark:bg-gray-800" : "bg-white dark:bg-gray-900"
-                  }`}
+                  className={`px-3 py-2 cursor-pointer text-sm ${active ? "bg-gray-100 dark:bg-gray-800" : "bg-white dark:bg-gray-900"
+                    }`}
                 >
                   {label} <span className="text-gray-500">({k})</span>
                 </div>

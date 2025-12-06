@@ -18,7 +18,7 @@ function normalizeOrKeepRawPhone(raw: string, iso2: string): { phone: string; ph
   if (!trimmed) return { phone: "", phoneCode: "" };
 
   // 1) Try strict parse
-  const p = parsePhoneNumberFromString(trimmed, iso2);
+  const p = parsePhoneNumberFromString(trimmed, iso2 as any);
   if (p && p.isValid()) {
     return { phone: p.number, phoneCode: `+${p.countryCallingCode}` }; // E.164
   }
@@ -78,11 +78,11 @@ export type KurasiBuyerInput = {
    HTTP: fetch a page
 ========================= */
 
-export async function fetchKurasiPage(params: KurasiQuery): Promise<{
+export async function fetchKurasiPage(params: KurasiQuery & { token?: string }): Promise<{
   rows: KurasiShipment[];
   total?: number;
 }> {
-  const token = process.env.KURASI_TOKEN || process.env.X_SHIP_AUTH_TOKEN;
+  const token = params.token || process.env.KURASI_TOKEN || process.env.X_SHIP_AUTH_TOKEN;
   if (!token) throw new Error("KURASI_TOKEN (X-Ship-Auth-Token) is required in env");
 
   const body = {
@@ -136,7 +136,7 @@ const S = (v: any) => (v == null ? "" : String(v).trim());
  * Returns E.164 phone, phoneCode ("+62"), and possibly normalized ISO2 (if lib detects).
  */
 function normalizePhone(raw: string, iso2Hint: string): { e164: string; phoneCode: string; country?: string } | null {
-  const p = parsePhoneNumberFromString(raw, iso2Hint);
+  const p = parsePhoneNumberFromString(raw, iso2Hint as any);
   if (!p || !p.isValid()) return null;
   return {
     e164: p.number,                     // "+1..."

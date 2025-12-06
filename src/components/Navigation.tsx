@@ -4,45 +4,116 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeSwitcher from "./ThemeSwitcher";
-import ColorThemeSwitcher from "./ColorThemeSwitcher";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Navigation() {
   const pathname = usePathname();
+  const { user, isAuthenticated, isLoading, login, logout } = useAuth();
+
+  // Login modal state
+  const [showLogin, setShowLogin] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const navItems = [
-    { href: "/", label: "Dashboard", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    )},
-    { href: "/orders", label: "Orders", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-      </svg>
-    )},
-    { href: "/customers", label: "Customers", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    )},
-    { href: "/buyers", label: "Recipients", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    )},
-    { href: "/quote", label: "Shipping Quote", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    )},
-    { href: "/kurasi", label: "Kurasi Auth", icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V7a4 4 0 118 0v4M6 11h12v8a2 2 0 01-2 2H8a2 2 0 01-2-2v-8z" />
-      </svg>
-    )},
+    {
+      href: "/", label: "Dashboard", icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      )
+    },
+    {
+      href: "/orders", label: "Orders", icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+      )
+    },
+    {
+      href: "/customers", label: "Customers", icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    },
+    {
+      href: "/buyers", label: "Recipients", icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      )
+    },
+    {
+      href: "/quote", label: "Shipping Quote", icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      )
+    },
   ];
 
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setIsLoggingIn(true);
+
+    const result = await login(username, password);
+    setIsLoggingIn(false);
+
+    if (result.success) {
+      setShowLogin(false);
+      setUsername("");
+      setPassword("");
+    } else {
+      setLoginError(result.error || "Login failed");
+    }
+  };
+
+  const AuthSection = () => (
+    <div className="px-4 py-3 mt-auto border-t border-gray-100 dark:border-gray-800">
+      {isLoading ? (
+        <div className="text-xs text-gray-400">Loading...</div>
+      ) : isAuthenticated ? (
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-0.5">
+              Logged in as
+            </div>
+            <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+              {user || "User"}
+            </div>
+            <button
+              onClick={logout}
+              className="mt-1 text-xs text-red-500 hover:text-red-600 dark:text-red-400 font-medium"
+            >
+              Sign Out
+            </button>
+          </div>
+          <div className="flex-shrink-0">
+            <ThemeSwitcher />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowLogin(true)}
+            className="w-full flex items-center justify-center px-4 py-1.5 border border-primary text-primary hover:bg-primary-light/10 rounded-md text-sm font-medium transition-colors"
+          >
+            Log in
+          </button>
+          <div className="flex justify-center">
+            <ThemeSwitcher />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -50,7 +121,7 @@ export default function Navigation() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700 h-14 flex items-center justify-between px-4">
         <button
           type="button"
-          className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"
+          className="inline-flex items-center justify-center p-2 rounded-md text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.05)]"
           aria-controls="mobile-sidebar"
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen(true)}
@@ -60,39 +131,33 @@ export default function Navigation() {
             <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Shipping PoS</h1>
-        <div className="flex items-center gap-2">
-          <ColorThemeSwitcher />
-          <ThemeSwitcher />
-        </div>
+        <h1 className="text-lg font-semibold text-[var(--text-main)]">Shipping PoS</h1>
+
       </div>
 
       {/* Desktop sidebar (inside layout flex) */}
-      <aside className="hidden md:flex w-64 min-h-screen border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+      <aside className="hidden md:flex w-64 min-h-screen border-r border-[var(--border-color)] bg-sidebar">
         <div className="flex h-full w-full flex-col">
           <div className="px-4 py-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Shipping PoS</h1>
+            <h1 className="text-xl font-bold text-[var(--text-main)]">Shipping PoS</h1>
           </div>
-          <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-            <ColorThemeSwitcher />
-            <ThemeSwitcher />
-          </div>
-          <div className="px-2 space-y-1">
+
+          <div className="px-2 space-y-1 flex-1 overflow-y-auto">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === item.href
-                    ? "bg-primary text-white"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === item.href
+                  ? "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)] font-semibold"
+                  : "text-[var(--text-muted)] hover:bg-[rgba(55,53,47,0.08)] hover:text-[var(--text-main)] dark:hover:bg-[rgba(255,255,255,0.05)]"
+                  }`}
               >
                 {item.icon}
                 {item.label}
               </Link>
             ))}
           </div>
+          <AuthSection />
         </div>
       </aside>
 
@@ -100,15 +165,14 @@ export default function Navigation() {
       <div className={`${mobileOpen ? "fixed inset-0 z-50 md:hidden" : "hidden"}`} id="mobile-sidebar">
         <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
         <div
-          className={`fixed inset-y-0 left-0 w-64 transform transition-transform duration-200 ease-out bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 custom-scrollbar overflow-y-auto ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 w-64 transform transition-transform duration-200 ease-out bg-sidebar border-r border-[var(--border-color)] custom-scrollbar overflow-y-auto ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="flex h-full flex-col">
             <div className="px-4 py-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Navigation</h2>
+              <h2 className="text-base font-semibold text-[var(--text-main)]">Navigation</h2>
               <button
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"
+                className="inline-flex items-center justify-center p-2 rounded-md text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.05)]"
                 onClick={() => setMobileOpen(false)}
               >
                 <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -121,11 +185,10 @@ export default function Navigation() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-base font-medium transition-colors ${
-                    pathname === item.href
-                      ? "bg-primary text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-base font-medium transition-colors ${pathname === item.href
+                    ? "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)] font-semibold"
+                    : "text-[var(--text-muted)] hover:bg-[rgba(55,53,47,0.08)] hover:text-[var(--text-main)] dark:hover:bg-[rgba(255,255,255,0.05)]"
+                    }`}
                   onClick={() => setMobileOpen(false)}
                 >
                   {item.icon}
@@ -133,13 +196,79 @@ export default function Navigation() {
                 </Link>
               ))}
             </div>
-            <div className="mt-auto px-4 py-4 flex items-center gap-2">
-              <ColorThemeSwitcher />
-              <ThemeSwitcher />
+            <div className="mt-auto">
+              <AuthSection />
+
             </div>
           </div>
         </div>
       </div>
+
+      {/* Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowLogin(false)}></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-[var(--bg-card)] rounded-lg text-left overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[var(--border-color)] transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full">
+              <div className="bg-[var(--bg-card)] px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-[var(--text-main)]" id="modal-title">
+                      Login to Kurasi
+                    </h3>
+                    <div className="mt-2">
+                      {loginError && (
+                        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-md text-sm">
+                          {loginError}
+                        </div>
+                      )}
+                      <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-1">Username</label>
+                          <input
+                            type="text"
+                            required
+                            className="input w-full"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-1">Password</label>
+                          <input
+                            type="password"
+                            required
+                            className="input w-full"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                          <button
+                            type="submit"
+                            disabled={isLoggingIn}
+                            className="w-full btn btn-primary sm:col-start-2 sm:text-sm"
+                          >
+                            {isLoggingIn ? "Logging in..." : "Login"}
+                          </button>
+                          <button
+                            type="button"
+                            className="mt-3 w-full btn btn-default sm:mt-0 sm:col-start-1 sm:text-sm"
+                            onClick={() => setShowLogin(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

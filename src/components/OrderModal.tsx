@@ -1,4 +1,4 @@
-// src/components/NewOrderModal.tsx
+// src/components/OrderModal.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +6,7 @@ import Modal from "./Modal";
 import RecipientModal from "@/components/RecipientModal";
 import CustomerModal from "@/components/CustomerModal";
 import Combobox from "@/components/Combobox";
+import { getPhoneCodeForCountry } from "@/lib/countryMapping";
 
 /* ───────────────── tiny debounce ───────────────── */
 function useDebounced<T>(value: T, delay = 300) {
@@ -87,9 +88,9 @@ function AsyncSearchSelect({
       </div>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-md border bg-white shadow-lg dark:bg-gray-900 dark:border-gray-700">
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg">
           {loading ? (
-            <div className="px-3 py-2 text-sm text-gray-500">Searching…</div>
+            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">Searching…</div>
           ) : (
             <>
               {items.length > 0 ? (
@@ -103,7 +104,7 @@ function AsyncSearchSelect({
                         onChange(it);
                         setOpen(false);
                       }}
-                      className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(55,53,47,0.08)]"
                     >
                       {it.label}
                     </li>
@@ -122,7 +123,7 @@ function AsyncSearchSelect({
                     setOpen(false);
                     onCreateNew(q);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="w-full text-left px-3 py-2 text-sm border-t border-[var(--border-color)] hover:bg-[rgba(55,53,47,0.08)]"
                 >
                   {createLabel} “{query.trim()}”
                 </button>
@@ -184,19 +185,34 @@ type BuyerDetail = {
   buyerState?: string | null;
   buyerZip: string;
   buyerCountry: string; // ISO-2
+  phoneCode?: string | null; // digits or may include '+' from DB; we'll normalize for display
 };
 
 type KurasiOption = {
   code: "EP" | "ES" | "EX" | "PP";
   key: "epr" | "esr" | "err" | "ppr";
   title: string;
-  amount: number;
-  displayAmount: string;
+  amount: number;          // minor units (e.g., 86000)
+  displayAmount: string;   // pretty string (e.g., "86,000")
   maxWeight: string | null;
 };
 
+// Static phone code helper for display (digits only, no "+")
+function safePhoneCode(countryCode?: string | null, fromDb?: string | null): string {
+  const fromDbDigits = String(fromDb ?? "").replace(/^\+/, "").replace(/\D/g, "");
+  if (fromDbDigits) return fromDbDigits;
+  try {
+    const cc = String(countryCode ?? "").trim().toUpperCase();
+    if (!cc) return "";
+    const code = getPhoneCodeForCountry(cc as any);
+    return String(code || "").replace(/\D/g, "");
+  } catch {
+    return "";
+  }
+}
+
 /* ───────────────────────── component ───────────────────────── */
-export default function NewOrderModal({
+export default function OrderModal({
   isOpen,
   onClose,
   onSuccess,
@@ -227,6 +243,7 @@ export default function NewOrderModal({
   const [totalValue, setTotalValue] = useState<string>(""); // required
   const [valueCurrency, setValueCurrency] = useState<string>("USD"); // UI only
   const [service, setService] = useState<string>(""); // EP/ES/EX/PP
+  const [shippingPriceMinor, setShippingPriceMinor] = useState<number | null>(null); // NEW
   const [packageDescription, setPackageDescription] = useState<string>(""); // required
   const [hsCode, setHsCode] = useState<string>(""); // 6 or 10
   const [hsError, setHsError] = useState<string | null>(null);
@@ -267,6 +284,7 @@ export default function NewOrderModal({
     setTotalValue("");
     setValueCurrency("USD");
     setService("");
+    setShippingPriceMinor(null);
     setPackageDescription("");
     setHsCode("");
     setHsError(null);
@@ -377,8 +395,8 @@ export default function NewOrderModal({
           j?.returnCode === "007"
             ? "HSCode must be 6 or 10 digits."
             : j?.returnCode === "008"
-            ? "Incorrect HSCode"
-            : j?.error || "HS Code validation failed";
+              ? "Incorrect HSCode"
+              : j?.error || "HS Code validation failed";
         setHsError(msg);
       } else {
         setHsError(null);
@@ -449,15 +467,21 @@ export default function NewOrderModal({
     if (!cc || !g || Number.isNaN(g) || g <= 0) {
       setServices([]);
       setQuoteMeta(null);
+      setService("");
+      setShippingPriceMinor(null);
       return;
     }
     fetchKurasiServices({ country: cc, weightGrams: g });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buyerDetail?.buyerCountry, weight]);
 
+  // Default/fix selection when services arrive
   useEffect(() => {
-    if (services.length && !service) setService(services[0].code);
-  }, [services, service]);
+    if (!services.length) return;
+    const current = services.find((s) => s.code === service) ?? services[0];
+    setService(current.code);
+    setShippingPriceMinor(current.amount ?? null);
+  }, [services]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* nested create handlers */
   function handleCustomerCreated(c?: {
@@ -533,9 +557,13 @@ export default function NewOrderModal({
         taxReference: taxRef || null,
         taxNumber: taxRef ? taxNumber.trim() : null,
 
+        // NEW: carry quoted fee from Kurasi
+        shippingPriceMinor: shippingPriceMinor ?? null,
+        pricingSource: "kurasi",
+
         // defaults
         localStatus: "in_progress",
-        deliveryStatus: "not_yet_create_label",
+        deliveryStatus: "not_yet_submit_to_kurasi",
         paymentMethod: "qris",
         placedAt: new Date().toISOString(),
         notes: null,
@@ -562,7 +590,7 @@ export default function NewOrderModal({
   /* render */
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
-      <div className="rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100">
+      <div className="rounded-lg bg-[var(--bg-card)]">
         <form onSubmit={onSubmit} className="max-h-[80vh] overflow-y-auto p-4 sm:p-6">
           <div className="space-y-8">
             {err && (
@@ -634,6 +662,10 @@ export default function NewOrderModal({
                           <DetailRow label="State/Province" value={buyerDetail.buyerState || undefined} />
                           <DetailRow label="ZIP/Postal Code" value={buyerDetail.buyerZip} />
                           <DetailRow label="Country" value={buyerDetail.buyerCountry} />
+                          <DetailRow
+                            label="Phone Code"
+                            value={safePhoneCode(buyerDetail.buyerCountry, buyerDetail.phoneCode ?? null) || undefined}
+                          />
                         </div>
                       ) : null}
                     </div>
@@ -696,22 +728,34 @@ export default function NewOrderModal({
                   items={services.map((s) => ({
                     code: s.code,
                     name: `${s.title || s.code} · ${s.displayAmount}`,
+                    amount: s.amount,
                   }))}
                   value={service}
-                  onChange={(code: string) => setService(code)}
+                  // Handle both Combobox signatures:
+                  // (value: string) or (value: string, item: any)
+                  onChange={(val: any, item?: any) => {
+                    const code = typeof val === "string" ? val : val?.code;
+                    const selected =
+                      item ??
+                      services.find((x) => x.code === code) ??
+                      null;
+                    setService(code);
+                    setShippingPriceMinor(selected?.amount ?? null);
+                  }}
                   getKey={(i: { code: string }) => i.code}
                   getLabel={(i: { name: string }) => i.name}
                   placeholder={
                     !buyerDetail?.buyerCountry || !Number(weight)
                       ? "Enter weight & pick recipient first"
                       : servicesLoading
-                      ? "Loading services…"
-                      : servicesErr || "Type to search service…"
+                        ? "Loading services…"
+                        : servicesErr || "Type to search service…"
                   }
                   disabled={!buyerDetail?.buyerCountry || !Number(weight) || servicesLoading}
-                  showChevron={false}
+
                   ariaLabel="Service"
                 />
+
                 {(buyerDetail?.buyerCountry && Number(weight)) && (
                   <div className="mt-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <div className="space-x-3">
@@ -720,6 +764,12 @@ export default function NewOrderModal({
                       )}
                       {quoteMeta?.chargeableWeight != null && (
                         <span>Chargeable: {quoteMeta.chargeableWeight} g</span>
+                      )}
+                      {shippingPriceMinor != null && (
+                        <span>
+                          Estimated fee:{" "}
+                          {new Intl.NumberFormat("id-ID").format(shippingPriceMinor)}
+                        </span>
                       )}
                     </div>
                     <button
@@ -852,8 +902,9 @@ export default function NewOrderModal({
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Delivery Status</label>
-                  <select className="input w-full text-xs" defaultValue="not_yet_create_label">
-                    <option value="not_yet_create_label">Not Yet Create Label</option>
+                  <select className="input w-full text-xs" defaultValue="not_yet_submit_to_kurasi">
+                    <option value="not_yet_submit_to_kurasi">Not Yet Submit to Kurasi</option>
+                    <option value="submitted_to_Kurasi">Submitted to Kurasi</option>
                     <option value="label_confirmed">Label Confirmed</option>
                     <option value="ready_to_send">Ready to Send</option>
                     <option value="tracking_received">Tracking Received</option>
