@@ -52,11 +52,48 @@ function ChevronIcon({ open }: { open: boolean }) {
 /* ────────────────────────────────────────────────────────────────
    Customer Group Component
 ───────────────────────────────────────────────────────────────── */
-function CustomerOrderGroup({ group }: { group: CustomerGroup }) {
+const LOCAL_STATUSES = [
+  { code: "in_progress", name: "In Progress" },
+  { code: "pending_payment", name: "Pending Payment" },
+  { code: "paid", name: "Paid" },
+  { code: "on_the_way", name: "On The Way" },
+];
+
+const DELIVERY_STATUSES = [
+  { code: "not_yet_submit_to_kurasi", name: "Not Submitted" },
+  { code: "submitted_to_Kurasi", name: "Submitted" },
+  { code: "label_confirmed", name: "Label Confirmed" },
+  { code: "ready_to_send", name: "Ready to Send" },
+  { code: "tracking_received", name: "Tracking Received" },
+];
+
+function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; onStatusChange: () => void }) {
   const [open, setOpen] = useState(true);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   // Calculate total for this customer
   const total = group.orders.reduce((sum, o) => sum + (o.shippingPriceMinor || 0), 0);
+
+  async function handleStatusChange(orderId: string, field: "localStatus" | "deliveryStatus", newStatus: string) {
+    setUpdatingOrderId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: newStatus }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to update status");
+      } else {
+        onStatusChange(); // Refresh the list
+      }
+    } catch (e) {
+      alert("Error updating status");
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -82,13 +119,12 @@ function CustomerOrderGroup({ group }: { group: CustomerGroup }) {
       {open && (
         <div className="divide-y divide-[var(--border-color)]">
           {group.orders.map((order) => (
-            <Link
+            <div
               key={order.id}
-              href={`/orders/${order.id}`}
-              className="block px-4 py-3 hover:bg-[rgba(55,53,47,0.04)] transition-colors"
+              className="px-4 py-3 hover:bg-[rgba(55,53,47,0.04)] transition-colors"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
+                <Link href={`/orders/${order.id}`} className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="font-medium text-[var(--text-main)] truncate max-w-[180px] sm:max-w-none">
                       {order.buyer.buyerFullName}
@@ -96,19 +132,46 @@ function CustomerOrderGroup({ group }: { group: CustomerGroup }) {
                     <span className="text-xs text-[var(--text-muted)] shrink-0">
                       → {order.buyer.buyerCountry}
                     </span>
-                    <span className="px-2 py-0.5 text-xs rounded border border-[var(--border-color)] text-[var(--text-muted)] shrink-0">
-                      {order.localStatus.replace(/_/g, " ")}
-                    </span>
                   </div>
                   <div className="text-xs text-[var(--text-muted)] mt-0.5">
                     {new Date(order.placedAt).toLocaleDateString()} • {order.package.service} • {order.package.weightGrams}g
                   </div>
-                </div>
-                <div className="text-right font-medium text-[var(--text-main)] shrink-0">
-                  {formatPrice(order.shippingPriceMinor)}
+                </Link>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={order.localStatus}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleStatusChange(order.id, "localStatus", e.target.value);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={updatingOrderId === order.id}
+                    className="text-xs px-2 py-1 rounded border border-[var(--border-color)] bg-white dark:bg-gray-800 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                  >
+                    {LOCAL_STATUSES.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={order.deliveryStatus}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleStatusChange(order.id, "deliveryStatus", e.target.value);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={updatingOrderId === order.id}
+                    className="text-xs px-2 py-1 rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-blue-400/40 disabled:opacity-50"
+                  >
+                    {DELIVERY_STATUSES.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name}</option>
+                    ))}
+                  </select>
+                  <span className="font-medium text-[var(--text-main)]">
+                    {formatPrice(order.shippingPriceMinor)}
+                  </span>
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
@@ -187,7 +250,7 @@ export default function OrdersPage() {
       ) : (
         <div className="space-y-4">
           {groups.map((group) => (
-            <CustomerOrderGroup key={group.customer.id} group={group} />
+            <CustomerOrderGroup key={group.customer.id} group={group} onStatusChange={fetchOrders} />
           ))}
         </div>
       )}
