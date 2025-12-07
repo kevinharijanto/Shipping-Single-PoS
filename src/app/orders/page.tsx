@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import NewOrderModal from "@/components/OrderModal";
+import AuthGuard from "@/components/AuthGuard";
 
 /* ────────────────────────────────────────────────────────────────
    Types
@@ -223,47 +224,49 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--text-main)]">Orders</h1>
-          <p className="text-[var(--text-muted)]">
-            {groups.length} customer(s) • Total: {formatPrice(grandTotal)}
-          </p>
+    <AuthGuard>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-[var(--text-main)]">Orders</h1>
+            <p className="text-[var(--text-muted)]">
+              {groups.length} customer(s) • Total: {formatPrice(grandTotal)}
+            </p>
+          </div>
+          <button onClick={() => setShowNewOrderModal(true)} className="btn btn-primary">
+            Create New Order
+          </button>
         </div>
-        <button onClick={() => setShowNewOrderModal(true)} className="btn btn-primary">
-          Create New Order
-        </button>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+            {error}
+          </div>
+        )}
+
+        {/* Grouped by Customer */}
+        {groups.length === 0 ? (
+          <div className="card p-8 text-center text-[var(--text-muted)]">
+            No orders found. Create your first order!
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <CustomerOrderGroup key={group.customer.id} group={group} onStatusChange={fetchOrders} />
+            ))}
+          </div>
+        )}
+
+        {/* Create Order Modal */}
+        <NewOrderModal
+          isOpen={showNewOrderModal}
+          onClose={() => setShowNewOrderModal(false)}
+          onSuccess={() => {
+            setShowNewOrderModal(false);
+            fetchOrders();
+          }}
+        />
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
-          {error}
-        </div>
-      )}
-
-      {/* Grouped by Customer */}
-      {groups.length === 0 ? (
-        <div className="card p-8 text-center text-[var(--text-muted)]">
-          No orders found. Create your first order!
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {groups.map((group) => (
-            <CustomerOrderGroup key={group.customer.id} group={group} onStatusChange={fetchOrders} />
-          ))}
-        </div>
-      )}
-
-      {/* Create Order Modal */}
-      <NewOrderModal
-        isOpen={showNewOrderModal}
-        onClose={() => setShowNewOrderModal(false)}
-        onSuccess={() => {
-          setShowNewOrderModal(false);
-          fetchOrders();
-        }}
-      />
-    </div>
+    </AuthGuard>
   );
 }

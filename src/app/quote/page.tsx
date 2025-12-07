@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ComboBox from "@/components/Combobox";
 import { countryMap } from "@/lib/countryMapping";
 import { useAuth } from "@/contexts/AuthContext";
+import AuthGuard from "@/components/AuthGuard";
 
 /* ===== Types ===== */
 type AvailableItem = {
@@ -208,148 +209,150 @@ export default function QuotePage() {
   const currencyForFmt = data?.meta?.currencyType || "IDR";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-[var(--text-main)]">Shipping Quote Calculator</h1>
-        <p className="text-[var(--text-muted)]">Get shipping quotes for international deliveries</p>
-      </div>
+    <AuthGuard>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--text-main)]">Shipping Quote Calculator</h1>
+          <p className="text-[var(--text-muted)]">Get shipping quotes for international deliveries</p>
+        </div>
 
-      {/* Kurasi Auth Status */}
-      {!isAuthenticated && (
-        <section className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              Log in to load the full country list from Kurasi. Providing correct inputs works without login.
-            </p>
-            {/* The global sidebar has the login button, but we can add a trigger here if we expose it from context, 
+        {/* Kurasi Auth Status */}
+        {!isAuthenticated && (
+          <section className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                Log in to load the full country list from Kurasi. Providing correct inputs works without login.
+              </p>
+              {/* The global sidebar has the login button, but we can add a trigger here if we expose it from context, 
                 however context only exposes login function, not the UI state of the sidebar modal. 
                 For now, just directing them to the sidebar is simplest, or we can add a local login form. 
                 Given the sidebar is always visible, pointing to it is fine. 
                 Or even better, we check session on mount (which AuthContext does).
             */}
+            </div>
+          </section>
+        )}
+        {/* Quote Form */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-[var(--text-main)]">Destination Country</span>
+            <ComboBox
+              items={countries}
+              value={country}
+              onChange={(key) => setCountry(key)}
+              getKey={(c) => c.country}
+              getLabel={(c) => c.country}
+              ariaLabel="Destination Country"
+            />
+          </label>
+
+          {/* Dimensions + weight */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-[var(--text-main)]">Actual Weight (g)</span>
+              <input
+                className="input"
+                value={actualWeight}
+                inputMode="numeric"
+                onChange={(e) => setActualWeight(normalizeNum(e.target.value))}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-[var(--text-main)]">Length</span>
+              <input
+                className="input"
+                value={actualLength}
+                inputMode="numeric"
+                onChange={(e) => setActualLength(normalizeNum(e.target.value))}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-[var(--text-main)]">Width</span>
+              <input
+                className="input"
+                value={actualWidth}
+                inputMode="numeric"
+                onChange={(e) => setActualWidth(normalizeNum(e.target.value))}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-[var(--text-main)]">Height</span>
+              <input
+                className="input"
+                value={actualHeight}
+                inputMode="numeric"
+                onChange={(e) => setActualHeight(normalizeNum(e.target.value))}
+              />
+            </label>
           </div>
         </section>
-      )}
-      {/* Quote Form */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-[var(--text-main)]">Destination Country</span>
-          <ComboBox
-            items={countries}
-            value={country}
-            onChange={(key) => setCountry(key)}
-            getKey={(c) => c.country}
-            getLabel={(c) => c.country}
-            ariaLabel="Destination Country"
-          />
-        </label>
 
-        {/* Dimensions + weight */}
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-[var(--text-main)]">Actual Weight (g)</span>
-            <input
-              className="input"
-              value={actualWeight}
-              inputMode="numeric"
-              onChange={(e) => setActualWeight(normalizeNum(e.target.value))}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-[var(--text-main)]">Length</span>
-            <input
-              className="input"
-              value={actualLength}
-              inputMode="numeric"
-              onChange={(e) => setActualLength(normalizeNum(e.target.value))}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-[var(--text-main)]">Width</span>
-            <input
-              className="input"
-              value={actualWidth}
-              inputMode="numeric"
-              onChange={(e) => setActualWidth(normalizeNum(e.target.value))}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-[var(--text-main)]">Height</span>
-            <input
-              className="input"
-              value={actualHeight}
-              inputMode="numeric"
-              onChange={(e) => setActualHeight(normalizeNum(e.target.value))}
-            />
-          </label>
+        <div className="flex gap-3">
+          <button onClick={fetchQuote} disabled={loading} className="btn btn-primary">
+            {loading ? "Loading..." : "Get Quote"}
+          </button>
         </div>
-      </section>
 
-      <div className="flex gap-3">
-        <button onClick={fetchQuote} disabled={loading} className="btn btn-primary">
-          {loading ? "Loading..." : "Get Quote"}
-        </button>
+        {errMsg && <p className="text-red-600 text-sm">{errMsg}</p>}
+
+        {/* Results: always show all 4 services, dim "Not available" ones */}
+        {data && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Available Services</h2>
+            <table className="w-full text-sm border border-[var(--border-color)] rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]">
+                  <th className="p-2 text-left">Code</th>
+                  <th className="p-2 text-left">Title</th>
+                  <th className="p-2 text-right">Amount</th>
+                  <th className="p-2 text-right">Max Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {catalog.map((s) => {
+                  const unavailable = !s.available;
+                  const isCheapest = !unavailable && s.code === cheapestCode;
+                  return (
+                    <tr key={s.code} className={`border-t border-[var(--border-color)] ${unavailable ? "opacity-50" : ""}`}>
+                      <td className="p-2">
+                        <span
+                          className={`inline-block rounded px-2 py-0.5 ${isCheapest ? "bg-[var(--color-primary-light)] text-[var(--color-primary)]" : "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]"
+                            }`}
+                        >
+                          {s.code}
+                          {isCheapest ? " • cheapest" : ""}
+                        </span>
+                      </td>
+                      <td className="p-2">{s.title}</td>
+                      <td className="p-2 text-right">
+                        {unavailable ? (
+                          <span className="text-[var(--text-muted)] italic">Not available</span>
+                        ) : (
+                          s.displayAmount || (typeof s.amount === "number" ? formatCurrency(s.amount, currencyForFmt) : "-")
+                        )}
+                      </td>
+                      <td className="p-2 text-right">{s.maxWeight ?? "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {data?.meta && (
+              <p className="text-xs text-[var(--text-muted)]">
+                Chargeable: {data.meta.chargeableWeight ?? "-"} | Volumetric: {data.meta.volumetricWeight ?? "-"} | Currency:{" "}
+                {(data.meta.currencySymbol ?? "") + (data.meta.currencyType ?? "")}
+              </p>
+            )}
+
+            {catalog.every((s) => !s.available) && (
+              <p className="text-sm text-[var(--text-muted)]">
+                No services available for this input. Try adjusting weight/dimensions or country.
+              </p>
+            )}
+          </section>
+        )}
       </div>
-
-      {errMsg && <p className="text-red-600 text-sm">{errMsg}</p>}
-
-      {/* Results: always show all 4 services, dim "Not available" ones */}
-      {data && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-[var(--text-main)]">Available Services</h2>
-          <table className="w-full text-sm border border-[var(--border-color)] rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]">
-                <th className="p-2 text-left">Code</th>
-                <th className="p-2 text-left">Title</th>
-                <th className="p-2 text-right">Amount</th>
-                <th className="p-2 text-right">Max Weight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {catalog.map((s) => {
-                const unavailable = !s.available;
-                const isCheapest = !unavailable && s.code === cheapestCode;
-                return (
-                  <tr key={s.code} className={`border-t border-[var(--border-color)] ${unavailable ? "opacity-50" : ""}`}>
-                    <td className="p-2">
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 ${isCheapest ? "bg-[var(--color-primary-light)] text-[var(--color-primary)]" : "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]"
-                          }`}
-                      >
-                        {s.code}
-                        {isCheapest ? " • cheapest" : ""}
-                      </span>
-                    </td>
-                    <td className="p-2">{s.title}</td>
-                    <td className="p-2 text-right">
-                      {unavailable ? (
-                        <span className="text-[var(--text-muted)] italic">Not available</span>
-                      ) : (
-                        s.displayAmount || (typeof s.amount === "number" ? formatCurrency(s.amount, currencyForFmt) : "-")
-                      )}
-                    </td>
-                    <td className="p-2 text-right">{s.maxWeight ?? "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {data?.meta && (
-            <p className="text-xs text-[var(--text-muted)]">
-              Chargeable: {data.meta.chargeableWeight ?? "-"} | Volumetric: {data.meta.volumetricWeight ?? "-"} | Currency:{" "}
-              {(data.meta.currencySymbol ?? "") + (data.meta.currencyType ?? "")}
-            </p>
-          )}
-
-          {catalog.every((s) => !s.available) && (
-            <p className="text-sm text-[var(--text-muted)]">
-              No services available for this input. Try adjusting weight/dimensions or country.
-            </p>
-          )}
-        </section>
-      )}
-    </div>
+    </AuthGuard>
   );
 }
