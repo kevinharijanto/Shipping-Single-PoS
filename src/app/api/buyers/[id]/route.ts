@@ -51,11 +51,10 @@ export async function GET(
       buyerCountry: buyer.buyerCountry,
       buyerEmail: buyer.buyerEmail ?? "",
       buyerPhone: buyer.buyerPhone,
-      phoneCode: buyer.phoneCode,
       _count: buyer._count,
       srns: buyer.srns,
-      createdAt: buyer.createdAt?.toISOString?.() ?? null,
-      updatedAt: buyer.updatedAt?.toISOString?.() ?? null,
+      createdAt: (buyer as any).createdAt?.toISOString?.() ?? null,
+      updatedAt: (buyer as any).updatedAt?.toISOString?.() ?? null,
     };
 
     if (withOrders) {
@@ -129,7 +128,6 @@ export async function PUT(
         buyerCountry: countryCode,
         buyerEmail: (buyerEmail ?? "").toLowerCase().trim(),
         buyerPhone: parsed.e164,
-        phoneCode: parsed.phoneCode,
       },
     });
 

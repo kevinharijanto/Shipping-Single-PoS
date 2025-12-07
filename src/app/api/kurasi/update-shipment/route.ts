@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { cookies } from "next/headers";
 import axios from "axios";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+import type { CountryCode } from "libphonenumber-js";
 
 const prisma = new PrismaClient();
 
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Get Kurasi auth token from cookies
     const cookieStore = await cookies();
     const authToken = cookieStore.get("kurasi_token")?.value || "";
-    
+
     if (!authToken) {
       console.error("Kurasi auth token not found in cookies");
       return NextResponse.json(
@@ -51,8 +53,18 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     console.log("Using auth token from cookie:", authToken ? `${authToken.slice(0, 6)}…${authToken.slice(-4)}` : "null");
+
+    // Parse phone to extract country code
+    const countryHint = (order.buyer.buyerCountry || "").toUpperCase();
+    const defaultCountry: CountryCode | undefined = /^[A-Z]{2}$/.test(countryHint) ? (countryHint as CountryCode) : undefined;
+    const parsedPhone = order.buyer.buyerPhone
+      ? parsePhoneNumberFromString(order.buyer.buyerPhone, defaultCountry ? { defaultCountry } : undefined)
+      : null;
+    const phoneCode = parsedPhone && parsedPhone.isValid()
+      ? `+${parsedPhone.countryCallingCode}`
+      : "+1";
 
     // Prepare headers for Kurasi API
     const headers = {
@@ -63,7 +75,7 @@ export async function POST(request: NextRequest) {
       "x-requested-with": "XMLHttpRequest",
       "x-ship-auth-token": authToken,
     };
-    
+
     console.log("Kurasi update API headers:", JSON.stringify(headers, null, 2));
 
     // Prepare update shipment data for Kurasi API
@@ -97,16 +109,16 @@ export async function POST(request: NextRequest) {
       branchName: "",
       clientCountry: "Indonesia",
       clientBranchName: "",
-      phoneCode: order.buyer.phoneCode || "+1",
+      phoneCode: phoneCode,
       customStoreName: null,
-      createdDate: new Date().toLocaleString("en-US", { 
-        year: "numeric", 
-        month: "2-digit", 
-        day: "2-digit", 
-        hour: "2-digit", 
-        minute: "2-digit", 
+      createdDate: new Date().toLocaleString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
         second: "2-digit",
-        hour12: false 
+        hour12: false
       }).replace(",", ""),
       updatedDate: null,
       createdPickupDate: null,
@@ -149,7 +161,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log("Kurasi update payload:", JSON.stringify(updateData, null, 2));
-    
+
     // Make API call to Kurasi to update shipment
     const response = await axios.post(
       "https://api.kurasi.app/api/v1/modifyShipment",
@@ -180,11 +192,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error updating Kurasi shipment:", error);
-    
+
     // Provide more detailed error information
     let errorMessage = "Failed to update shipment";
     let errorDetails: any = null;
-    
+
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx

@@ -32,7 +32,7 @@ export async function PUT(
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
 
-    const { name, phone, phoneCode, shopeeName } = body ?? {};
+    const { name, phone, shopeeName } = body ?? {};
     if (!name || !phone) {
       return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
     }
@@ -40,14 +40,11 @@ export async function PUT(
     const parsed = normalizeAndSplitPhone(String(phone), undefined);
     if (!parsed) return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
 
-    const resolvedPhoneCode = parsed.phoneCode || phoneCode || "+62";
-
     const updated = await prisma.customer.update({
       where: { id },
       data: {
         name,
         phone: parsed.e164,
-        phoneCode: resolvedPhoneCode,
         shopeeName: shopeeName ?? null,
       },
       include: {

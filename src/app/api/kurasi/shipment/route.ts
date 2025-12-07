@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Get Kurasi auth token from cookies (same approach as other Kurasi APIs)
     const cookieStore = await cookies();
     const authToken = cookieStore.get("kurasi_token")?.value || "";
-    
+
     if (!authToken) {
       console.error("Kurasi auth token not found in cookies");
       return NextResponse.json(
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     console.log("Using auth token from cookie:", authToken ? `${authToken.slice(0, 6)}…${authToken.slice(-4)}` : "null");
 
     // Update order status to submitted_to_Kurasi first
@@ -57,31 +57,29 @@ export async function POST(request: NextRequest) {
 
     // Prepare shipment data for Kurasi API
     const rawService = (order.package.service || "").toUpperCase();
-    const ALLOWED_SERVICES = ["EP","ES","EX","PP"] as const;
+    const ALLOWED_SERVICES = ["EP", "ES", "EX", "PP"] as const;
     const serviceName = ALLOWED_SERVICES.find(code => rawService.startsWith(code)) ?? "EX";
     const isExpress = serviceName === "EX";
- 
+
     const countryHintRaw = (order.buyer.buyerCountry || "").toUpperCase();
     const defaultCountry: CountryCode | undefined = /^[A-Z]{2}$/.test(countryHintRaw) ? (countryHintRaw as CountryCode) : undefined;
- 
+
     const parsedPhone = order.buyer.buyerPhone
       ? parsePhoneNumberFromString(
-          order.buyer.buyerPhone,
-          defaultCountry ? { defaultCountry } : undefined
-        )
+        order.buyer.buyerPhone,
+        defaultCountry ? { defaultCountry } : undefined
+      )
       : null;
- 
+
     const buyerPhoneNational = parsedPhone && parsedPhone.isValid()
       ? parsedPhone.nationalNumber
       : (order.buyer.buyerPhone || "").replace(/\D/g, "");
- 
+
     const phoneCodeDigits = (() => {
-      const pcRaw =
-        order.buyer.phoneCode ||
-        (parsedPhone && parsedPhone.isValid() ? String(parsedPhone.countryCallingCode) : "");
+      const pcRaw = parsedPhone && parsedPhone.isValid() ? String(parsedPhone.countryCallingCode) : "";
       return String(pcRaw || "").replace(/^\+/, "").replace(/\D/g, "") || "1";
     })();
- 
+
     const shipmentData = {
       buyerFullName: order.buyer.buyerFullName,
       buyerAddress1: order.buyer.buyerAddress1,
@@ -112,17 +110,17 @@ export async function POST(request: NextRequest) {
       // contentItem: one item for Express, empty array for non-Express
       contentItem: isExpress
         ? [
-            {
-              description: order.package.packageDescription || "Package",
-              quantity: "1",
-              value: String(Number(order.package.totalValue) || 7),
-              itemWeight: order.package.weightGrams?.toString() || "100",
-              currency: order.package.currency || "USD",
-              sku: order.package.sku || "",
-              hsCode: order.package.hsCode || "490900",
-              countryOfOrigin: order.package.countryOfOrigin || "ID",
-            },
-          ]
+          {
+            description: order.package.packageDescription || "Package",
+            quantity: "1",
+            value: String(Number(order.package.totalValue) || 7),
+            itemWeight: order.package.weightGrams?.toString() || "100",
+            currency: order.package.currency || "USD",
+            sku: order.package.sku || "",
+            hsCode: order.package.hsCode || "490900",
+            countryOfOrigin: order.package.countryOfOrigin || "ID",
+          },
+        ]
         : [],
       saleChannel: order.saleChannel || "",
       ioss: "",
@@ -131,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     // Log the payload being sent to Kurasi
     console.log("Kurasi shipment payload:", JSON.stringify(shipmentData, null, 2));
-    
+
     // Prepare headers for Kurasi API
     const headers = {
       accept: "application/json, text/plain, */*, text/csv",
@@ -141,9 +139,9 @@ export async function POST(request: NextRequest) {
       "x-requested-with": "XMLHttpRequest",
       "x-ship-auth-token": authToken,
     };
-    
+
     console.log("Kurasi API headers:", JSON.stringify(headers, null, 2));
-    
+
     // Make API call to Kurasi
     const response = await axios.post(
       "https://api.kurasi.app/api/v1/createShipment",
@@ -194,11 +192,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error creating Kurasi shipment:", error);
-    
+
     // Provide more detailed error information
     let errorMessage = "Failed to create shipment";
     let errorDetails: any = null;
-    
+
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiDocsGenerator } from '@/lib/api-docs-generator';
+import { prisma } from '@/lib/prisma';
 
 type BuyerRow = {
   id: string;

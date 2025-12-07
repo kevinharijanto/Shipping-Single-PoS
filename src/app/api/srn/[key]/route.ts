@@ -38,7 +38,6 @@ export async function GET(
             buyerCity: true,
             buyerState: true,
             buyerZip: true,
-            phoneCode: true,
           },
         },
       },
