@@ -16,13 +16,32 @@ interface Order {
   deliveryStatus: string;
   shippingPriceMinor: number | null;
   notes: string | null;
+  srnId: number | null;
+  krsTrackingNumber: string | null;
   buyer: { id: string; buyerFullName: string; buyerCountry: string };
   package: { id: string; weightGrams: number | null; service: string };
 }
 
 interface CustomerGroup {
   customer: { id: string; name: string; phone: string };
+  date: string;
   orders: Order[];
+}
+
+function formatGroupDate(dateStr: string | undefined | null) {
+  if (!dateStr) return "No Date";
+  try {
+    const date = new Date(dateStr + "T00:00:00");
+    if (isNaN(date.getTime())) return dateStr; // fallback to raw string
+    return date.toLocaleDateString("id-ID", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr || "No Date";
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -63,115 +82,149 @@ const LOCAL_STATUSES = [
 const DELIVERY_STATUSES = [
   { code: "not_yet_submit_to_kurasi", name: "Not Submitted" },
   { code: "submitted_to_Kurasi", name: "Submitted" },
-  { code: "label_confirmed", name: "Label Confirmed" },
   { code: "ready_to_send", name: "Ready to Send" },
   { code: "tracking_received", name: "Tracking Received" },
 ];
 
 function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; onStatusChange: () => void }) {
-  const [open, setOpen] = useState(true);
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
-  // Calculate total for this customer
+  // Calculate total for this group
   const total = group.orders.reduce((sum, o) => sum + (o.shippingPriceMinor || 0), 0);
 
-  async function handleStatusChange(orderId: string, field: "localStatus" | "deliveryStatus", newStatus: string) {
-    setUpdatingOrderId(orderId);
+  // Use first order's status as the group status (all should be same)
+  const groupLocalStatus = group.orders[0]?.localStatus || "in_progress";
+  const groupDeliveryStatus = group.orders[0]?.deliveryStatus || "not_yet_submit_to_kurasi";
+
+  // Update all orders in this group
+  async function handleGroupStatusChange(field: "localStatus" | "deliveryStatus", newStatus: string) {
+    setUpdating(true);
     try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: newStatus }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to update status");
-      } else {
-        onStatusChange(); // Refresh the list
+      // Update all orders in this group
+      const updates = group.orders.map((order) =>
+        fetch(`/api/orders/${order.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: newStatus }),
+        })
+      );
+      const results = await Promise.all(updates);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        alert(`Failed to update ${failed.length} order(s)`);
       }
+      onStatusChange(); // Refresh the list
     } catch (e) {
       alert("Error updating status");
     } finally {
-      setUpdatingOrderId(null);
+      setUpdating(false);
     }
   }
 
   return (
     <div className="card overflow-hidden">
-      {/* Customer Header with Total */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-[rgba(55,53,47,0.04)] hover:bg-[rgba(55,53,47,0.08)] transition-colors text-left"
-      >
-        <div className="flex items-center gap-3">
-          <ChevronIcon open={open} />
-          <div>
-            <span className="font-semibold text-[var(--text-main)]">{group.customer.name}</span>
-            <span className="ml-2 text-sm text-[var(--text-muted)]">{group.customer.phone}</span>
+      {/* Group Header with Status Controls - Responsive */}
+      <div className="px-4 py-3 bg-[rgba(55,53,47,0.04)] space-y-2">
+        {/* Row 1: Chevron + Customer name + Price */}
+        <div className="flex items-start justify-between gap-2">
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-start gap-2 hover:opacity-80 transition-opacity min-w-0 text-left"
+          >
+            <ChevronIcon open={open} />
+            <div className="min-w-0">
+              <div className="font-semibold text-[var(--text-main)]">{group.customer.name}</div>
+              <div className="text-xs text-[var(--text-muted)]">{formatGroupDate(group.date)}</div>
+            </div>
+          </button>
+          <div className="text-right shrink-0">
+            <div className="font-medium text-[var(--text-main)]">{formatPrice(total)}</div>
+            <div className="text-xs text-[var(--text-muted)]">{group.orders.length} order(s)</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-medium text-[var(--text-main)]">{formatPrice(total)}</div>
-          <div className="text-xs text-[var(--text-muted)]">{group.orders.length} order(s)</div>
-        </div>
-      </button>
 
-      {/* Stacked Order Rows */}
+        {/* Row 2: Status dropdowns - full width on mobile */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            value={groupLocalStatus}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleGroupStatusChange("localStatus", e.target.value);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            disabled={updating}
+            className="flex-1 text-xs px-2 py-1.5 rounded border border-[var(--border-color)] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+          >
+            {LOCAL_STATUSES.map((s) => (
+              <option key={s.code} value={s.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">{s.name}</option>
+            ))}
+          </select>
+          <select
+            value={groupDeliveryStatus}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleGroupStatusChange("deliveryStatus", e.target.value);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            disabled={updating}
+            className="flex-1 text-xs px-2 py-1.5 rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400/40 disabled:opacity-50"
+          >
+            {DELIVERY_STATUSES.map((s) => (
+              <option key={s.code} value={s.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">{s.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Order Rows - Table-like layout */}
       {open && (
         <div className="divide-y divide-[var(--border-color)]">
+          {/* Header row - hidden on mobile */}
+          <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_100px] gap-2 px-4 py-2 text-xs font-medium text-[var(--text-muted)] bg-[rgba(55,53,47,0.02)]">
+            <span>SRN</span>
+            <span>Buyer Name / KRS</span>
+            <span>Country</span>
+            <span>Service</span>
+            <span className="text-right">Weight</span>
+            <span className="text-right">Price</span>
+          </div>
           {group.orders.map((order) => (
             <div
               key={order.id}
-              className="px-4 py-3 hover:bg-[rgba(55,53,47,0.04)] transition-colors"
+              className="px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-150 border-l-2 border-transparent hover:border-blue-500 flex items-center gap-2"
             >
-              <div className="flex items-start justify-between gap-2">
-                <Link href={`/orders/${order.id}`} className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="font-medium text-[var(--text-main)] truncate max-w-[180px] sm:max-w-none">
-                      {order.buyer.buyerFullName}
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)] shrink-0">
-                      → {order.buyer.buyerCountry}
-                    </span>
+              <Link href={`/orders/${order.id}`} className="flex-1 min-w-0">
+                {/* Desktop: Grid layout */}
+                <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_100px] gap-2 items-center text-sm">
+                  <span className="text-[var(--text-muted)]">{order.srnId || "-"}</span>
+                  <div className="truncate">
+                    <span className="font-medium text-[var(--text-main)]">{order.buyer.buyerFullName}</span>
+                    {order.krsTrackingNumber && (
+                      <span className="ml-2 font-bold text-blue-600 dark:text-blue-400">{order.krsTrackingNumber}</span>
+                    )}
                   </div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                    {new Date(order.placedAt).toLocaleDateString()} • {order.package.service} • {order.package.weightGrams}g
-                  </div>
-                </Link>
-                <div className="flex items-center gap-2 shrink-0">
-                  <select
-                    value={order.localStatus}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleStatusChange(order.id, "localStatus", e.target.value);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    disabled={updatingOrderId === order.id}
-                    className="text-xs px-2 py-1 rounded border border-[var(--border-color)] bg-white dark:bg-gray-800 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
-                  >
-                    {LOCAL_STATUSES.map((s) => (
-                      <option key={s.code} value={s.code}>{s.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={order.deliveryStatus}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleStatusChange(order.id, "deliveryStatus", e.target.value);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    disabled={updatingOrderId === order.id}
-                    className="text-xs px-2 py-1 rounded border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-blue-400/40 disabled:opacity-50"
-                  >
-                    {DELIVERY_STATUSES.map((s) => (
-                      <option key={s.code} value={s.code}>{s.name}</option>
-                    ))}
-                  </select>
-                  <span className="font-medium text-[var(--text-main)]">
-                    {formatPrice(order.shippingPriceMinor)}
-                  </span>
+                  <span className="text-[var(--text-muted)]">{order.buyer.buyerCountry}</span>
+                  <span className="text-[var(--text-muted)]">{order.package.service}</span>
+                  <span className="text-right text-[var(--text-muted)]">{order.package.weightGrams}g</span>
+                  <span className="text-right font-medium text-[var(--text-main)]">{formatPrice(order.shippingPriceMinor)}</span>
                 </div>
-              </div>
+                {/* Mobile: Compact layout */}
+                <div className="sm:hidden flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium text-[var(--text-main)] truncate">
+                      {order.buyer.buyerFullName}
+                      {order.krsTrackingNumber && (
+                        <span className="ml-2 font-bold text-blue-600 dark:text-blue-400">{order.krsTrackingNumber}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      SRN {order.srnId || "-"} • {order.buyer.buyerCountry} • {order.package.service} • {order.package.weightGrams}g
+                    </div>
+                  </div>
+                  <span className="font-medium text-[var(--text-main)] shrink-0">{formatPrice(order.shippingPriceMinor)}</span>
+                </div>
+              </Link>
             </div>
           ))}
         </div>
@@ -244,7 +297,7 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* Grouped by Customer */}
+        {/* Grouped by Customer + Date */}
         {groups.length === 0 ? (
           <div className="card p-8 text-center text-[var(--text-muted)]">
             No orders found. Create your first order!
@@ -252,7 +305,7 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-4">
             {groups.map((group) => (
-              <CustomerOrderGroup key={group.customer.id} group={group} onStatusChange={fetchOrders} />
+              <CustomerOrderGroup key={`${group.customer.id}-${group.date}`} group={group} onStatusChange={fetchOrders} />
             ))}
           </div>
         )}

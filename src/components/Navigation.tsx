@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -10,6 +10,24 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function Navigation() {
   const pathname = usePathname();
   const { user, isAuthenticated, isLoading, login, logout } = useAuth();
+
+  // Sidebar collapse state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem("sidebar-collapsed");
+    if (savedState !== null) {
+      setIsCollapsed(savedState === "true");
+    }
+  }, []);
+
+  // Save collapsed state to localStorage
+  const toggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem("sidebar-collapsed", String(newState));
+  };
 
   // Login modal state
   const [showLogin, setShowLogin] = useState(false);
@@ -89,44 +107,98 @@ export default function Navigation() {
     }
   };
 
-  const AuthSection = () => (
-    <div className="px-4 py-3 mt-auto border-t border-gray-100 dark:border-gray-800">
+  // Collapsed AuthSection for sidebar
+  const AuthSection = ({ collapsed = false }: { collapsed?: boolean }) => (
+    <div className={`${collapsed ? 'px-2' : 'px-4'} py-3 mt-auto border-t border-gray-100 dark:border-gray-800`}>
       {isLoading ? (
-        <div className="text-xs text-gray-400">Loading...</div>
+        <div className={`text-xs text-gray-400 ${collapsed ? 'text-center' : ''}`}>
+          {collapsed ? '...' : 'Loading...'}
+        </div>
       ) : isAuthenticated ? (
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-0.5">
-              Logged in as
-            </div>
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-              {user || "User"}
-            </div>
+        collapsed ? (
+          // Collapsed view - just icons
+          <div className="flex flex-col items-center gap-2">
             <button
               onClick={logout}
-              className="mt-1 text-xs text-red-500 hover:text-red-600 dark:text-red-400 font-medium"
+              className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              title="Sign Out"
             >
-              Sign Out
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
             </button>
-          </div>
-          <div className="flex-shrink-0">
             <ThemeSwitcher />
           </div>
-        </div>
+        ) : (
+          // Expanded view
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-0.5">
+                Logged in as
+              </div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                {user || "User"}
+              </div>
+              <button
+                onClick={logout}
+                className="mt-1 text-xs text-red-500 hover:text-red-600 dark:text-red-400 font-medium"
+              >
+                Sign Out
+              </button>
+            </div>
+            <div className="flex-shrink-0">
+              <ThemeSwitcher />
+            </div>
+          </div>
+        )
       ) : (
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowLogin(true)}
-            className="w-full flex items-center justify-center px-4 py-1.5 border border-primary text-primary hover:bg-primary-light/10 rounded-md text-sm font-medium transition-colors"
-          >
-            Log in
-          </button>
-          <div className="flex justify-center">
+        collapsed ? (
+          // Collapsed login button
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={() => setShowLogin(true)}
+              className="p-2 text-primary hover:bg-primary-light/10 rounded-lg transition-colors"
+              title="Log in"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+            </button>
             <ThemeSwitcher />
           </div>
-        </div>
+        ) : (
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowLogin(true)}
+              className="w-full flex items-center justify-center px-4 py-1.5 border border-primary text-primary hover:bg-primary-light/10 rounded-md text-sm font-medium transition-colors"
+            >
+              Log in
+            </button>
+            <div className="flex justify-center">
+              <ThemeSwitcher />
+            </div>
+          </div>
+        )
       )}
     </div>
+  );
+
+  // Collapse toggle button
+  const CollapseButton = () => (
+    <button
+      onClick={toggleCollapse}
+      className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+      title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+    >
+      <svg
+        className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+      </svg>
+    </button>
   );
 
   return (
@@ -149,29 +221,37 @@ export default function Navigation() {
 
       </div>
 
-      {/* Desktop sidebar (inside layout flex) */}
-      <aside className="hidden md:flex w-64 min-h-screen border-r border-[var(--border-color)] bg-sidebar">
+      {/* Desktop sidebar (sticky) */}
+      <aside
+        className={`hidden md:flex h-screen sticky top-0 border-r border-[var(--border-color)] bg-sidebar transition-all duration-200 ease-in-out ${isCollapsed ? 'w-16' : 'w-64'
+          }`}
+      >
         <div className="flex h-full w-full flex-col">
-          <div className="px-4 py-4">
-            <h1 className="text-xl font-bold text-[var(--text-main)]">Kurasyit</h1>
+          {/* Header with title and collapse button */}
+          <div className={`py-4 flex items-center ${isCollapsed ? 'px-2 justify-center' : 'px-4 justify-between'}`}>
+            {!isCollapsed && (
+              <h1 className="text-xl font-bold text-[var(--text-main)]">Kurasyit</h1>
+            )}
+            <CollapseButton />
           </div>
 
-          <div className="px-2 space-y-1 flex-1 overflow-y-auto">
+          <div className={`${isCollapsed ? 'px-1' : 'px-2'} space-y-1 flex-1 overflow-y-auto`}>
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === item.href
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-2 px-3'} py-2 rounded-lg text-sm font-medium transition-colors ${pathname === item.href
                   ? "bg-[rgba(55,53,47,0.08)] text-[var(--text-main)] font-semibold"
                   : "text-[var(--text-muted)] hover:bg-[rgba(55,53,47,0.08)] hover:text-[var(--text-main)] dark:hover:bg-[rgba(255,255,255,0.05)]"
                   }`}
               >
-                {item.icon}
-                {item.label}
+                <span className="flex-shrink-0">{item.icon}</span>
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
               </Link>
             ))}
           </div>
-          <AuthSection />
+          <AuthSection collapsed={isCollapsed} />
         </div>
       </aside>
 

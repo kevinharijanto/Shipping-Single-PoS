@@ -88,7 +88,6 @@ const LOCAL_STATUSES = [
 const DELIVERY_STATUSES = [
     { code: "not_yet_submit_to_kurasi", name: "Not Yet Submit to Kurasi" },
     { code: "submitted_to_Kurasi", name: "Submitted to Kurasi" },
-    { code: "label_confirmed", name: "Label Confirmed" },
     { code: "ready_to_send", name: "Ready to Send" },
     { code: "tracking_received", name: "Tracking Received" },
 ];

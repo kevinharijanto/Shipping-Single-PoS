@@ -122,7 +122,7 @@ export default function TempShipmentsPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {[...shipments].sort((a, b) => a.labelCreated - b.labelCreated).map((s) => (
+                    {[...shipments].sort((a, b) => Number(b.saleRecordNumber) - Number(a.saleRecordNumber)).map((s) => (
                         <div key={s.shipmentId} className="card overflow-hidden">
                             {/* Header - clickable */}
                             <div

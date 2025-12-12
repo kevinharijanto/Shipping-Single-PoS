@@ -49,11 +49,7 @@ export async function POST(request: NextRequest) {
 
     console.log("Using auth token from cookie:", authToken ? `${authToken.slice(0, 6)}…${authToken.slice(-4)}` : "null");
 
-    // Update order status to submitted_to_Kurasi first
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { deliveryStatus: "submitted_to_Kurasi" } as any,
-    });
+    // Note: deliveryStatus is now managed manually at group level, not auto-updated here
 
     // Prepare shipment data for Kurasi API
     const rawService = (order.package.service || "").toUpperCase();
@@ -184,6 +180,14 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+
+    // Fire a 7-day sync in the background (fire-and-forget)
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3888';
+    fetch(`${baseUrl}/api/kurasi/sync-shipments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Cookie": `kurasi_token=${authToken}` },
+      body: JSON.stringify({}), // Empty body = 7-day default sync
+    }).catch((e) => console.error("Background sync failed:", e));
 
     return NextResponse.json({
       success: true,

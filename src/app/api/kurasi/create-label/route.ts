@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Get Kurasi auth token from cookies
     const cookieStore = await cookies();
     const authToken = cookieStore.get("kurasi_token")?.value || "";
-    
+
     if (!authToken) {
       console.error("Kurasi auth token not found in cookies");
       return NextResponse.json(
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     console.log("Using auth token from cookie:", authToken ? `${authToken.slice(0, 6)}…${authToken.slice(-4)}` : "null");
 
     // Prepare data for Kurasi API
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log("Kurasi create label payload:", JSON.stringify(labelData, null, 2));
-    
+
     // Prepare headers for Kurasi API
     const headers = {
       accept: "application/json, text/plain, */*, text/csv",
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
       "x-requested-with": "XMLHttpRequest",
       "x-ship-auth-token": authToken,
     };
-    
+
     console.log("Kurasi API headers:", JSON.stringify(headers, null, 2));
-    
+
     // Make API call to Kurasi with responseType set to arraybuffer to handle binary data
     const response = await axios.post(
       "https://api.kurasi.app/api/v1/createLabel",
@@ -83,24 +83,20 @@ export async function POST(request: NextRequest) {
     console.log("Response headers:", response.headers);
     console.log("Response data type:", typeof response.data);
     console.log("Response data constructor:", response.data.constructor.name);
-    
+
     // Check if the response is a PDF (content-type includes 'application/pdf')
     const contentType = response.headers['content-type'];
     console.log("Content-Type:", contentType);
-    
+
     if (contentType && contentType.includes('application/pdf')) {
-      // Update order status to label_confirmed
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { deliveryStatus: "label_confirmed" } as any,
-      });
+      // Note: deliveryStatus is now managed manually at group level, not auto-updated here
 
       // Create a new Response with the PDF data and appropriate headers
       const pdfData = response.data;
       const headers = new Headers();
       headers.set('Content-Type', 'application/pdf');
       headers.set('Content-Disposition', `attachment; filename="label-${order.krsTrackingNumber}.pdf"`);
-      
+
       return new NextResponse(pdfData, {
         status: 200,
         headers,
@@ -110,9 +106,9 @@ export async function POST(request: NextRequest) {
       // Convert the binary data to text and then parse as JSON
       const responseText = Buffer.from(response.data).toString('utf8');
       console.log("Response text (first 200 chars):", responseText.substring(0, 200));
-      
+
       let responseData;
-      
+
       try {
         responseData = JSON.parse(responseText);
       } catch (e) {
@@ -140,11 +136,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update order status to label_confirmed
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { deliveryStatus: "label_confirmed" } as any,
-      });
+      // Note: deliveryStatus is now managed manually at group level, not auto-updated here
 
       // Extract tracking link if available
       const trackingLink = labelInfo.trackingLink || null;
@@ -168,11 +160,11 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error("Error creating Kurasi label:", error);
-    
+
     // Provide more detailed error information
     let errorMessage = "Failed to create label";
     let errorDetails: any = null;
-    
+
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx

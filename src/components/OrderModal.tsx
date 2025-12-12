@@ -964,7 +964,6 @@ export default function OrderModal({
                   <select className="input w-full text-xs" defaultValue="not_yet_submit_to_kurasi">
                     <option value="not_yet_submit_to_kurasi">Not Yet Submit to Kurasi</option>
                     <option value="submitted_to_Kurasi">Submitted to Kurasi</option>
-                    <option value="label_confirmed">Label Confirmed</option>
                     <option value="ready_to_send">Ready to Send</option>
                     <option value="tracking_received">Tracking Received</option>
                   </select>

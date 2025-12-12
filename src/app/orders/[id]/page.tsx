@@ -95,7 +95,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   // Build the exact Kurasi payload (preview) using the same rules as the API route
   function buildShipmentPayload(order: Order) {
     const rawService = (order.package?.service || "").toUpperCase();
-    const ALLOWED_SERVICES = ["EP","ES","EX","PP"] as const;
+    const ALLOWED_SERVICES = ["EP", "ES", "EX", "PP"] as const;
     const serviceName = ALLOWED_SERVICES.find(code => rawService.startsWith(code)) ?? "EX";
     const isExpress = serviceName === "EX";
 
@@ -144,17 +144,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       // contentItem: one item for Express, empty array for non-Express
       contentItem: isExpress
         ? [
-            {
-              description: order.package?.packageDescription || "Package",
-              quantity: "1",
-              value: String(Number(order.package?.totalValue ?? 7)),
-              itemWeight: order.package?.weightGrams != null ? String(order.package.weightGrams) : "100",
-              currency: order.package?.currency || "USD",
-              sku: order.package?.sku || "",
-              hsCode: order.package?.hsCode || "490900",
-              countryOfOrigin: order.package?.countryOfOrigin || "ID",
-            }
-          ]
+          {
+            description: order.package?.packageDescription || "Package",
+            quantity: "1",
+            value: String(Number(order.package?.totalValue ?? 7)),
+            itemWeight: order.package?.weightGrams != null ? String(order.package.weightGrams) : "100",
+            currency: order.package?.currency || "USD",
+            sku: order.package?.sku || "",
+            hsCode: order.package?.hsCode || "490900",
+            countryOfOrigin: order.package?.countryOfOrigin || "ID",
+          }
+        ]
         : [],
       saleChannel: "",
       ioss: "",
@@ -168,7 +168,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     setPreviewPayload(payload);
     setShowShipPreview(true);
   }
-  
+
   async function handleDelete() {
     if (!confirm("Are you sure you want to delete this order? This action cannot be undone.")) {
       return;
@@ -192,10 +192,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   async function handleCreateShipment() {
     if (!order) return;
-    
+
     setIsCreatingShipment(true);
     setError(null);
-    
+
     try {
       const response = await fetch("/api/kurasi/shipment", {
         method: "POST",
@@ -211,10 +211,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       }
 
       const data = await response.json();
-      
+
       // Refresh order data to get the updated tracking number
       await fetchOrder();
-      
+
       // Show success message
       alert(`Shipment created successfully! Tracking number: ${data.krsNumber}`);
     } catch (err) {
@@ -226,14 +226,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   async function handleDeleteShipment() {
     if (!order) return;
-    
+
     if (!confirm(`Are you sure you want to delete the shipment ${order.krsTrackingNumber} from Kurasi? This action cannot be undone.`)) {
       return;
     }
-    
+
     setIsCreatingShipment(true);
     setError(null);
-    
+
     try {
       const response = await fetch("/api/kurasi/delete-shipment", {
         method: "POST",
@@ -249,10 +249,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       }
 
       const data = await response.json();
-      
+
       // Refresh order data to reflect the deletion
       await fetchOrder();
-      
+
       // Show success message
       alert(`Shipment ${data.krsNumber} deleted successfully from Kurasi!`);
     } catch (err) {
@@ -264,10 +264,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   async function handleCreateLabel() {
     if (!order) return;
-    
+
     setIsCreatingLabel(true);
     setError(null);
-    
+
     try {
       const response = await fetch("/api/kurasi/create-label", {
         method: "POST",
@@ -304,17 +304,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         // Show success message
         alert(`Label downloaded successfully! Status updated to: label_confirmed`);
       } else {
         // Handle JSON response (fallback)
         const data = await response.json();
-        
+
         // Show success message
         alert(`Label created successfully! Status: ${data.deliveryStatus || "label_confirmed"}`);
       }
-      
+
       // Refresh order data to get the updated status and tracking link
       await fetchOrder();
     } catch (err) {
@@ -553,9 +553,37 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   KRS Tracking Number
                 </label>
-                <p className="text-gray-900 dark:text-white font-mono">
-                  {order.krsTrackingNumber || "No KRS tracking number"}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-900 dark:text-white font-mono">
+                    {order.krsTrackingNumber || "No KRS tracking number"}
+                  </p>
+                  {order.krsTrackingNumber && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/kurasi/fetch-shipment-data", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ orderId: order.id }),
+                          });
+                          if (res.ok) {
+                            alert("Refreshed successfully from Kurasi!");
+                            await fetchOrder();
+                          } else {
+                            const j = await res.json().catch(() => ({}));
+                            alert(`Refresh failed: ${j.error || "Unknown error"}`);
+                          }
+                        } catch (e: any) {
+                          alert(`Refresh failed: ${e.message}`);
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                      title="Refresh data from Kurasi"
+                    >
+                      ↻ Refresh
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

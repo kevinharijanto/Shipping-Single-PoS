@@ -18,6 +18,8 @@
     "dayjs": "^1.11.18",
     "fast-csv": "^5.0.5",
     "fast-glob": "^3.3.3",
+    "jsbarcode": "^3.12.1",
+    "jspdf": "^3.0.4",
     "libphonenumber-js": "^1.12.24",
     "next": "15.5.4",
     "react": "18.3.1",

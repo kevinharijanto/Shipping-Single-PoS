@@ -15,14 +15,18 @@ function toDecimal(n: any) {
   return Number.isFinite(num) ? num : null;
 }
 
-function mapKurasiService(k?: string | null) {
-  const code = (k || "").toUpperCase();
-  switch (code) {
-    case "EX": return "express";
-    case "ES": return "economy_standard";
-    case "EP": return "economy_plus";
-    case "PP": return "packet_premium";
-    default:   return "economy";
+// Normalize any service input to short codes (EP/ES/EX/PP)
+function normalizeServiceCode(s?: string | null): string {
+  const input = (s || "").toUpperCase().trim();
+  // Already a short code
+  if (["EP", "ES", "EX", "PP"].includes(input)) return input;
+  // Long name to short code
+  switch (input.replace(/_/g, "").toLowerCase()) {
+    case "express": return "EX";
+    case "economystandard": return "ES";
+    case "economyplus": return "EP";
+    case "packetpremium": return "PP";
+    default: return input || "EP"; // fallback to EP
   }
 }
 
@@ -50,9 +54,9 @@ export async function GET(
     const srn =
       order.srnId != null
         ? await prisma.buyerSRN.findUnique({
-            where: { saleRecordNumber: order.srnId },
-            select: { saleRecordNumber: true },
-          })
+          where: { saleRecordNumber: order.srnId },
+          select: { saleRecordNumber: true },
+        })
         : null;
 
     return NextResponse.json({
@@ -174,10 +178,7 @@ export async function PUT(
           ...(widthCm !== undefined && { widthCm: toDecimal(widthCm) as any }),
           ...(heightCm !== undefined && { heightCm: toDecimal(heightCm) as any }),
           ...(service !== undefined && {
-            service: ["economy","economy_standard","express","economy_plus","packet_premium"]
-              .includes(String(service))
-              ? String(service)
-              : mapKurasiService(service),
+            service: normalizeServiceCode(service),
           }),
           ...(currency !== undefined && { currency: currency || null }),
           ...(sku !== undefined && { sku: sku || null }),
@@ -216,7 +217,7 @@ export async function PUT(
         // Get auth token from cookies
         const cookieStore = await cookies();
         const authToken = cookieStore.get("kurasi_token")?.value || "";
-        
+
         if (authToken) {
           // Call the update shipment API
           const updateResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/kurasi/update-shipment`, {
@@ -226,7 +227,7 @@ export async function PUT(
             },
             body: JSON.stringify({ orderId: id }),
           });
-          
+
           if (!updateResponse.ok) {
             console.error("Failed to sync shipment with Kurasi:", await updateResponse.text());
             // Don't fail the order update, just log the error
@@ -270,14 +271,14 @@ export async function DELETE(
 
       // Optionally delete the package row (if you want to keep orphan packages, remove this)
       if (existing.packageId) {
-        await tx.packageDetail.delete({ where: { id: existing.packageId } }).catch(() => {});
+        await tx.packageDetail.delete({ where: { id: existing.packageId } }).catch(() => { });
       }
 
       // If the SRN is now unused by any order, remove the BuyerSRN row so the number is cleanly reusable
       if (existing.srnId != null) {
         const stillUsed = await tx.order.count({ where: { srnId: existing.srnId } });
         if (stillUsed === 0) {
-          await tx.buyerSRN.delete({ where: { saleRecordNumber: existing.srnId } }).catch(() => {});
+          await tx.buyerSRN.delete({ where: { saleRecordNumber: existing.srnId } }).catch(() => { });
         }
       }
     });

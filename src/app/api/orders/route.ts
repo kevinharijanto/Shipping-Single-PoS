@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       else if (scope === "delivery") where.deliveryStatus = value;
     }
 
-    // Grouped by customer
+    // Grouped by customer + date (composite key)
     if (groupBy === "customer") {
       const customers = await prisma.customer.findMany({
         where: { orders: { some: where } },
@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
               deliveryStatus: true,
               shippingPriceMinor: true,
               notes: true,
+              srnId: true,
+              krsTrackingNumber: true,
               buyer: { select: { id: true, buyerFullName: true, buyerCountry: true } },
               package: { select: { id: true, weightGrams: true, service: true } },
             },
@@ -68,10 +70,47 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      const groups = customers.map((c) => ({
-        customer: { id: c.id, name: c.name, phone: c.phone },
-        orders: c.orders,
-      }));
+      // Create groups by (customer, date) composite key
+      const groupsMap = new Map<string, {
+        customer: { id: string; name: string; phone: string };
+        date: string;
+        orders: typeof customers[0]["orders"];
+      }>();
+
+      for (const c of customers) {
+        for (const order of c.orders) {
+          // Extract date only (YYYY-MM-DD), handle null placedAt
+          let dateStr: string;
+          if (order.placedAt) {
+            const d = new Date(order.placedAt);
+            dateStr = isNaN(d.getTime()) ? "unknown" : d.toISOString().split("T")[0];
+          } else {
+            dateStr = "unknown";
+          }
+          const key = `${c.id}|${dateStr}`;
+
+          if (!groupsMap.has(key)) {
+            groupsMap.set(key, {
+              customer: { id: c.id, name: c.name, phone: c.phone },
+              date: dateStr,
+              orders: [],
+            });
+          }
+          groupsMap.get(key)!.orders.push(order);
+        }
+      }
+
+      // Sort orders within each group by SRN descending (newest first)
+      for (const g of groupsMap.values()) {
+        g.orders.sort((a, b) => (b.srnId ?? 0) - (a.srnId ?? 0));
+      }
+
+      // Sort groups by max SRN (first order after sorting) descending
+      const groups = Array.from(groupsMap.values()).sort((a, b) => {
+        const maxSrnA = a.orders[0]?.srnId ?? 0;
+        const maxSrnB = b.orders[0]?.srnId ?? 0;
+        return maxSrnB - maxSrnA;
+      });
 
       return NextResponse.json({ groups });
     }
