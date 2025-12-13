@@ -5,6 +5,7 @@ import ComboBox from "@/components/Combobox";
 import { countryMap } from "@/lib/countryMapping";
 import { useAuth } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import { calculateFee, formatFee } from "@/lib/feeCalculator";
 
 /* ===== Types ===== */
 type AvailableItem = {
@@ -304,7 +305,9 @@ export default function QuotePage() {
                 <tr className="bg-[rgba(55,53,47,0.08)] text-[var(--text-main)]">
                   <th className="p-2 text-left">Code</th>
                   <th className="p-2 text-left">Title</th>
-                  <th className="p-2 text-right">Amount</th>
+                  <th className="p-2 text-right">Kurasi Fee</th>
+                  <th className="p-2 text-right">Local Fee</th>
+                  <th className="p-2 text-right">Total</th>
                   <th className="p-2 text-right">Max Weight</th>
                 </tr>
               </thead>
@@ -312,6 +315,12 @@ export default function QuotePage() {
                 {catalog.map((s) => {
                   const unavailable = !s.available;
                   const isCheapest = !unavailable && s.code === cheapestCode;
+                  // Get country ISO code for fee calculation
+                  const countryItem = countries.find((c) => c.country === country);
+                  const countryCode = countryItem?.shortName || "";
+                  const weightGrams = Number(actualWeight) || 0;
+                  const localFee = calculateFee(weightGrams, countryCode);
+                  const total = s.amount != null ? s.amount + localFee : null;
                   return (
                     <tr key={s.code} className={`border-t border-[var(--border-color)] ${unavailable ? "opacity-50" : ""}`}>
                       <td className="p-2">
@@ -330,6 +339,12 @@ export default function QuotePage() {
                         ) : (
                           s.displayAmount || (typeof s.amount === "number" ? formatCurrency(s.amount, currencyForFmt) : "-")
                         )}
+                      </td>
+                      <td className="p-2 text-right text-green-600 dark:text-green-400 font-medium">
+                        {unavailable ? "-" : formatFee(localFee)}
+                      </td>
+                      <td className="p-2 text-right font-semibold">
+                        {unavailable || total == null ? "-" : formatCurrency(total, currencyForFmt)}
                       </td>
                       <td className="p-2 text-right">{s.maxWeight ?? "-"}</td>
                     </tr>

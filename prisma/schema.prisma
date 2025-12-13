@@ -114,6 +114,7 @@ model Order {
   // Prices kept for future usage; harmless if null
   quotedAmountMinor  Int?
   shippingPriceMinor Int?
+  feeMinor           Int?    // Local handling fee (calculated from weight + country)
   currency           String?
   pricingSource      String?
 
@@ -190,6 +191,7 @@ model KurasiShipment {
   shippingFeeMinor  Int?     // Parsed numeric value
   chargeableWeight  Int?
   actualWeight      Int?
+  localFeeMinor     Int?     // Calculated local handling fee
   
   // Tracking
   trackingNumber    String?

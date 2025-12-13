@@ -9,7 +9,7 @@ export async function GET() {
         const total = await prisma.kurasiShipment.count();
 
         const feeSum = await prisma.kurasiShipment.aggregate({
-            _sum: { shippingFeeMinor: true },
+            _sum: { shippingFeeMinor: true, localFeeMinor: true },
         });
 
         const byCountry = await prisma.kurasiShipment.groupBy({
@@ -32,6 +32,7 @@ export async function GET() {
         return NextResponse.json({
             total,
             totalFees: feeSum._sum.shippingFeeMinor || 0,
+            totalLocalFees: feeSum._sum.localFeeMinor || 0,
             byCountry: byCountry.map((c) => ({ country: c.buyerCountry, count: c._count.buyerCountry })),
             byService: byService.map((s) => ({ service: s.serviceName || "Unknown", count: s._count.serviceName })),
             recent,

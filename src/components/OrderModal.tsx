@@ -7,6 +7,7 @@ import RecipientModal from "@/components/RecipientModal";
 import CustomerModal from "@/components/CustomerModal";
 import Combobox from "@/components/Combobox";
 import { getPhoneCodeForCountry } from "@/lib/countryMapping";
+import { calculateFee, formatFee } from "@/lib/feeCalculator";
 
 /* ───────────────── tiny debounce ───────────────── */
 function useDebounced<T>(value: T, delay = 300) {
@@ -815,32 +816,50 @@ export default function OrderModal({
                 />
 
                 {(buyerDetail?.buyerCountry && Number(weight)) && (
-                  <div className="mt-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <div className="space-x-3">
-                      {quoteMeta?.volumetricWeight != null && (
-                        <span>Volumetric: {quoteMeta.volumetricWeight} g</span>
-                      )}
-                      {quoteMeta?.chargeableWeight != null && (
-                        <span>Chargeable: {quoteMeta.chargeableWeight} g</span>
-                      )}
-                      {shippingPriceMinor != null && (
-                        <span>
-                          Estimated fee:{" "}
-                          {new Intl.NumberFormat("id-ID").format(shippingPriceMinor)}
-                        </span>
-                      )}
+                  <div className="mt-2 p-3 rounded-md bg-gray-50 dark:bg-gray-800 border border-[var(--border-color)]">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="space-y-1">
+                        {quoteMeta?.chargeableWeight != null && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Chargeable: {quoteMeta.chargeableWeight}g
+                          </div>
+                        )}
+                        <div className="flex gap-4">
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Kurasi Fee: </span>
+                            <span className="font-medium">
+                              {shippingPriceMinor != null
+                                ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(shippingPriceMinor)
+                                : "-"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Local Fee: </span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">
+                              {formatFee(calculateFee(Number(weight), buyerDetail?.buyerCountry || ""))}
+                            </span>
+                          </div>
+                        </div>
+                        {shippingPriceMinor != null && (
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            Total: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
+                              shippingPriceMinor + calculateFee(Number(weight), buyerDetail?.buyerCountry || "")
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs underline text-blue-600 dark:text-blue-400"
+                        onClick={() => {
+                          const cc = buyerDetail?.buyerCountry;
+                          const g = Number(weight);
+                          if (cc && g > 0) fetchKurasiServices({ country: cc, weightGrams: g });
+                        }}
+                      >
+                        Refresh
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="underline"
-                      onClick={() => {
-                        const cc = buyerDetail?.buyerCountry;
-                        const g = Number(weight);
-                        if (cc && g > 0) fetchKurasiServices({ country: cc, weightGrams: g });
-                      }}
-                    >
-                      Refresh
-                    </button>
                   </div>
                 )}
               </div>

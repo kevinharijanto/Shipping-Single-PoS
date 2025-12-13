@@ -8,6 +8,7 @@ import AuthGuard from "@/components/AuthGuard";
 interface ShipmentStats {
     total: number;
     totalFees: number;
+    totalLocalFees: number;
     byCountry: { country: string; count: number }[];
     byService: { service: string; count: number }[];
     recent: any[];
@@ -126,14 +127,18 @@ export default function ShipmentsPage() {
                 )}
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="card p-4">
                         <div className="text-sm text-[var(--text-muted)]">Total Shipments</div>
                         <div className="text-2xl font-bold text-[var(--text-main)]">{stats?.total || 0}</div>
                     </div>
                     <div className="card p-4">
-                        <div className="text-sm text-[var(--text-muted)]">Total Fees</div>
+                        <div className="text-sm text-[var(--text-muted)]">Kurasi Fees</div>
                         <div className="text-2xl font-bold text-[var(--text-main)]">{formatPrice(stats?.totalFees || 0)}</div>
+                    </div>
+                    <div className="card p-4">
+                        <div className="text-sm text-[var(--text-muted)]">Local Fees</div>
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">{formatPrice(stats?.totalLocalFees || 0)}</div>
                     </div>
                     <div className="card p-4">
                         <div className="text-sm text-[var(--text-muted)]">Countries</div>

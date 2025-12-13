@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { calculateFee } from "@/lib/feeCalculator";
 
 /* ------------------------ helpers ------------------------ */
 
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
               localStatus: true,
               deliveryStatus: true,
               shippingPriceMinor: true,
+              feeMinor: true,
               notes: true,
               srnId: true,
               krsTrackingNumber: true,
@@ -202,6 +204,16 @@ export async function POST(req: NextRequest) {
     const created = await prisma.$transaction(async (tx) => {
       const srnInt = Number(srn);
 
+      // Fetch buyer to get country for fee calculation
+      const buyer = await tx.buyer.findUnique({
+        where: { id: buyerId },
+        select: { buyerCountry: true },
+      });
+      if (!buyer) throw new Error("Buyer not found");
+
+      // Calculate local handling fee
+      const localFee = calculateFee(Number(weightGrams), buyer.buyerCountry);
+
       // Ensure SRN
       const srnRec = await tx.buyerSRN.upsert({
         where: { saleRecordNumber: srnInt },
@@ -242,9 +254,12 @@ export async function POST(req: NextRequest) {
           taxReference: taxReference ?? null,
           taxNumber: taxReference ? (String(taxNumber || "").trim() || null) : null,
 
-          // ✅ persist delivery fee + source
+          // Kurasi shipping fee
           shippingPriceMinor: feeMinor,
           pricingSource: feeMinor != null ? (pricingSource || "kurasi") : null,
+
+          // Local handling fee (calculated)
+          feeMinor: localFee,
         },
         include: {
           customer: { select: { id: true, name: true, phone: true } },

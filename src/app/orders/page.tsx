@@ -15,6 +15,7 @@ interface Order {
   localStatus: string;
   deliveryStatus: string;
   shippingPriceMinor: number | null;
+  feeMinor: number | null;
   notes: string | null;
   srnId: number | null;
   krsTrackingNumber: string | null;
@@ -90,8 +91,10 @@ function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; o
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  // Calculate total for this group
-  const total = group.orders.reduce((sum, o) => sum + (o.shippingPriceMinor || 0), 0);
+  // Calculate totals for this group
+  const totalShipping = group.orders.reduce((sum, o) => sum + (o.shippingPriceMinor || 0), 0);
+  const totalFee = group.orders.reduce((sum, o) => sum + (o.feeMinor || 0), 0);
+  const total = totalShipping + totalFee;
 
   // Use first order's status as the group status (all should be same)
   const groupLocalStatus = group.orders[0]?.localStatus || "in_progress";
@@ -181,12 +184,13 @@ function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; o
       {open && (
         <div className="divide-y divide-[var(--border-color)]">
           {/* Header row - hidden on mobile */}
-          <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_100px] gap-2 px-4 py-2 text-xs font-medium text-[var(--text-muted)] bg-[rgba(55,53,47,0.02)]">
+          <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_80px_80px] gap-2 px-4 py-2 text-xs font-medium text-[var(--text-muted)] bg-[rgba(55,53,47,0.02)]">
             <span>SRN</span>
             <span>Buyer Name / KRS</span>
             <span>Country</span>
             <span>Service</span>
             <span className="text-right">Weight</span>
+            <span className="text-right">Fee</span>
             <span className="text-right">Price</span>
           </div>
           {group.orders.map((order) => (
@@ -196,7 +200,7 @@ function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; o
             >
               <Link href={`/orders/${order.id}`} className="flex-1 min-w-0">
                 {/* Desktop: Grid layout */}
-                <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_100px] gap-2 items-center text-sm">
+                <div className="hidden sm:grid sm:grid-cols-[50px_1fr_60px_50px_60px_80px_80px] gap-2 items-center text-sm">
                   <span className="text-[var(--text-muted)]">{order.srnId || "-"}</span>
                   <div className="truncate">
                     <span className="font-medium text-[var(--text-main)]">{order.buyer.buyerFullName}</span>
@@ -207,6 +211,7 @@ function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; o
                   <span className="text-[var(--text-muted)]">{order.buyer.buyerCountry}</span>
                   <span className="text-[var(--text-muted)]">{order.package.service}</span>
                   <span className="text-right text-[var(--text-muted)]">{order.package.weightGrams}g</span>
+                  <span className="text-right text-green-600 dark:text-green-400">{formatPrice(order.feeMinor)}</span>
                   <span className="text-right font-medium text-[var(--text-main)]">{formatPrice(order.shippingPriceMinor)}</span>
                 </div>
                 {/* Mobile: Compact layout */}
@@ -222,7 +227,10 @@ function CustomerOrderGroup({ group, onStatusChange }: { group: CustomerGroup; o
                       SRN {order.srnId || "-"} • {order.buyer.buyerCountry} • {order.package.service} • {order.package.weightGrams}g
                     </div>
                   </div>
-                  <span className="font-medium text-[var(--text-main)] shrink-0">{formatPrice(order.shippingPriceMinor)}</span>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm text-green-600 dark:text-green-400">{formatPrice(order.feeMinor)}</div>
+                    <div className="font-medium text-[var(--text-main)]">{formatPrice(order.shippingPriceMinor)}</div>
+                  </div>
                 </div>
               </Link>
             </div>
