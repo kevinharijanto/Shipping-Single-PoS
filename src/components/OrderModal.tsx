@@ -251,6 +251,12 @@ export default function OrderModal({
   const [hsDescription, setHsDescription] = useState<string | null>(null);
   const [hsLoading, setHsLoading] = useState(false);
 
+  // Express (EX) content item fields - required when service=EX
+  const [itemDescription, setItemDescription] = useState<string>("");
+  const [itemQty, setItemQty] = useState<string>("1");
+  const [itemUnitValue, setItemUnitValue] = useState<string>("");
+  const [itemUnitWeight, setItemUnitWeight] = useState<string>("");
+
   // SRN (required + unique)
   const [srn, setSrn] = useState<string>("");
   const debouncedSrn = useDebounced(srn.trim(), 400);
@@ -293,6 +299,12 @@ export default function OrderModal({
     setHsError(null);
     setHsDescription(null);
     setHsLoading(false);
+
+    // Reset Express content item fields
+    setItemDescription("");
+    setItemQty("1");
+    setItemUnitValue("");
+    setItemUnitWeight("");
 
     setSrn("");
     setSrnError(null);
@@ -591,11 +603,22 @@ export default function OrderModal({
       if (!totalValue) throw new Error("Total Value is required.");
       if (!packageDescription.trim()) throw new Error("Package Description is required.");
 
+      // Express (EX) requires content item fields
+      const isExpressService = service === "EX";
+      if (isExpressService) {
+        if (!itemDescription.trim()) throw new Error("Item Description is required for Express.");
+        if (!itemQty.trim() || Number(itemQty) <= 0) throw new Error("Item QTY must be greater than 0 for Express.");
+        if (!itemUnitValue.trim() || Number(itemUnitValue) <= 0) throw new Error("Unit Value is required for Express.");
+        if (!itemUnitWeight.trim() || Number(itemUnitWeight) <= 0) throw new Error("Unit Weight is required for Express.");
+      }
+
       if (!srn.trim()) throw new Error("SRN is required.");
       if (srnError) throw new Error(srnError);
 
-      // optional HS code validation before submit
-      if (hsCode.trim()) {
+      // HS code required for Express service
+      if (!hsCode.trim()) {
+        if (isExpressService) throw new Error("HS Code is required for Express.");
+      } else {
         const local = localHsCheck(hsCode);
         if (local) throw new Error(local);
       }
@@ -611,6 +634,15 @@ export default function OrderModal({
           packageDescription: packageDescription.trim(),
           hsCode: hsCode.trim() || null,
         },
+        // Include Express content item data if applicable
+        ...(service === "EX" && {
+          contentItem: {
+            description: itemDescription.trim(),
+            quantity: itemQty.trim(),
+            value: itemUnitValue.trim(),
+            itemWeight: itemUnitWeight.trim(),
+          },
+        }),
         srn: srn.trim(),
         saleChannel: saleChannel || null,
         taxReference: taxRef || null,
@@ -903,6 +935,62 @@ export default function OrderModal({
                   {hsError && <p className="mt-1 text-xs text-red-600">{hsError}</p>}
                 </div>
               </div>
+
+              {/* Express Content Item Fields - Required when service = EX */}
+              {service === "EX" && (
+                <div className="mt-4 p-4 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                  <h4 className="text-sm font-medium mb-3 text-blue-800 dark:text-blue-200">
+                    📦 Express Content Item Details (Required)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm mb-1">Item Description *</label>
+                      <input
+                        className="input w-full"
+                        required
+                        placeholder="e.g. Clothes, Electronics"
+                        value={itemDescription}
+                        onChange={(e) => setItemDescription(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">QTY *</label>
+                      <input
+                        className="input w-full"
+                        type="number"
+                        min={1}
+                        required
+                        placeholder="1"
+                        value={itemQty}
+                        onChange={(e) => setItemQty(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Unit Value *</label>
+                      <input
+                        className="input w-full"
+                        inputMode="decimal"
+                        required
+                        placeholder="e.g. 10"
+                        value={itemUnitValue}
+                        onChange={(e) => setItemUnitValue(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Unit Weight (gram) *</label>
+                      <input
+                        className="input w-full"
+                        type="number"
+                        min={1}
+                        required
+                        placeholder="e.g. 100"
+                        value={itemUnitWeight}
+                        onChange={(e) => setItemUnitWeight(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SRN */}
               <div className="mt-4">

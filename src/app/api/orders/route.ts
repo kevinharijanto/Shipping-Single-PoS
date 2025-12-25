@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
       totalValue,
       currency,
       package: pkg,
+      contentItem,                // <-- Express content item
       srn,
       externalRef,
       saleChannel,
@@ -230,6 +231,13 @@ export async function POST(req: NextRequest) {
           packageDescription: String(pkg.packageDescription),
           hsCode: (pkg.hsCode ?? "").trim() || null,
           service: String(service),
+          // Express content item fields (if provided)
+          ...(contentItem && {
+            itemDescription: contentItem.description || null,
+            itemQty: contentItem.quantity || null,
+            itemUnitValue: contentItem.value || null,
+            itemUnitWeight: contentItem.itemWeight || null,
+          }),
         },
       });
 

@@ -107,10 +107,10 @@ export async function POST(request: NextRequest) {
       contentItem: isExpress
         ? [
           {
-            description: order.package.packageDescription || "Package",
-            quantity: "1",
-            value: String(Number(order.package.totalValue) || 7),
-            itemWeight: order.package.weightGrams?.toString() || "100",
+            description: order.package.itemDescription || order.package.packageDescription || "Package",
+            quantity: order.package.itemQty || "1",
+            value: order.package.itemUnitValue || String(Number(order.package.totalValue) || 7),
+            itemWeight: order.package.itemUnitWeight || order.package.weightGrams?.toString() || "100",
             currency: order.package.currency || "USD",
             sku: order.package.sku || "",
             hsCode: order.package.hsCode || "490900",

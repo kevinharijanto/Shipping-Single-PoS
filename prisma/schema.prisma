@@ -165,6 +165,12 @@ model PackageDetail {
   hsCode             String?
   countryOfOrigin    String?
 
+  // Express (EX) content item fields - optional, used when service=EX
+  itemDescription    String?
+  itemQty            String?
+  itemUnitValue      String?
+  itemUnitWeight     String?
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   order              Order?

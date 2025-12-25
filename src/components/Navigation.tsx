@@ -11,6 +11,11 @@ export default function Navigation() {
   const pathname = usePathname();
   const { user, isAuthenticated, isLoading, login, logout } = useAuth();
 
+  // Hide navigation on customer-facing pages (only the /customer-quote page)
+  if (pathname?.startsWith("/customer-quote")) {
+    return null;
+  }
+
   // Sidebar collapse state
   const [isCollapsed, setIsCollapsed] = useState(false);
 

@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SQLite database files
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# Exports and temp files
+exports/
+*.log
+
+# Documentation
+README.md
+API-DOCS.md
+REIMPORT_KURASI_BUYERS.md
+
+# Test files
+*.test.ts
+*.spec.ts
+
+# Misc
+postman-collection.json
+kurasi.skips.jsonl
