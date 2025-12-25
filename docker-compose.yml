@@ -7,17 +7,16 @@ services:
     restart: unless-stopped
     ports:
       - "3888:3888"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/prod.db
-      # Add your other environment variables here
-      # - KURASI_API_KEY=your_api_key
-      # - KURASI_API_URL=https://api.kurasi.com
     volumes:
       # Persist SQLite database
       - sqlite_data:/app/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3888"]
+      test: ["CMD", "curl", "-f", "http://localhost:3888"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -26,3 +25,4 @@ services:
 volumes:
   sqlite_data:
     driver: local
+

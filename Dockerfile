@@ -36,7 +36,13 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
+# Copy package.json for prisma CLI
+COPY --from=builder /app/package.json ./package.json
+
+# Install prisma CLI for runtime db push + curl for healthcheck
+RUN apk add --no-cache libc6-compat curl
+RUN npm install prisma@6.17.1 --save-dev --ignore-scripts
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
@@ -48,5 +54,5 @@ EXPOSE 3888
 ENV PORT=3888
 ENV HOSTNAME="0.0.0.0"
 
-# Use the bundled prisma version and run db push (works without migrations folder)
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
+# Run db push to sync schema, then start server
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
