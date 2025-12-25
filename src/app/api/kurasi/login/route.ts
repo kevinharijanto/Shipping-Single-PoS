@@ -40,7 +40,9 @@ export async function POST(req: Request) {
     const token = json.data.token!;
     const res = NextResponse.json({ status: "SUCCESS" }, { status: 200 });
 
-    const secure = process.env.NODE_ENV === "production";
+    // Check if behind HTTPS (direct or via proxy like Cloudflare)
+    const forwardedProto = req.headers.get("x-forwarded-proto");
+    const secure = forwardedProto === "https" || (process.env.NODE_ENV === "production" && forwardedProto !== "http");
 
     // HttpOnly session token (used by server-to-server proxies)
     res.cookies.set({
