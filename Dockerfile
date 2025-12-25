@@ -18,7 +18,7 @@ RUN npx prisma generate
 
 # Copy existing database (populated with data)
 RUN mkdir -p /app/data
-COPY src/app/data/prod.db /app/data/prod.db
+COPY prisma/app/data/prod.db /app/data/prod.db
 
 # Build Next.js
 ENV NEXT_TELEMETRY_DISABLED=1

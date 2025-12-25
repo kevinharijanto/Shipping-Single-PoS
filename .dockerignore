@@ -28,7 +28,7 @@ Thumbs.db
 # SQLite database files (except our main db)
 *.db
 *.db-journal
-!src/app/data/prod.db
+!prisma/app/data/prod.db
 prisma/*.db
 prisma/*.db-journal
 
