@@ -10,47 +10,24 @@ export async function GET(req: NextRequest) {
     const jar = await cookies();
     const token = jar.get("kurasi_token")?.value;
 
-    let latestDateMs = 0;
-    let latestSrn = 0;
-
-    const consider = (srnValue: any, dateString: any) => {
-        const s = Number(String(srnValue || "").trim());
-        if (Number.isFinite(s) && s > 0 && s < 10000000) {
-            let ms = 0;
-            if (dateString instanceof Date) {
-                 ms = dateString.getTime();
-            } else if (typeof dateString === "string") {
-                 // Kurasi dates are often "2026/03/17 14:38:31" or "2026-03-17 14:38:31"
-                 ms = new Date(dateString.replace(/\//g, "-")).getTime();
-            }
-            if (Number.isFinite(ms) && ms > latestDateMs) {
-                 latestDateMs = ms;
-                 latestSrn = s;
-            }
-        }
-    };
-
-    // 1. Get latest from local DB table buyerSRN
-    const latestLocalDB = await prisma.buyerSRN.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { saleRecordNumber: true, createdAt: true }
+    // 1. Get max from local DB table buyerSRN (ignore tracking numbers masquerading as SRN)
+    const maxLocalDB = await prisma.buyerSRN.aggregate({
+      _max: { saleRecordNumber: true },
+      where: { saleRecordNumber: { lt: 10000 } }
     });
-    if (latestLocalDB) {
-        consider(latestLocalDB.saleRecordNumber, latestLocalDB.createdAt);
-    }
+    let maxSrn = maxLocalDB._max.saleRecordNumber || 0;
     
-    // Also check the order table
-    const latestLocalOrder = await prisma.order.findFirst({
-        where: { srnId: { not: null } },
-        orderBy: { createdAt: 'desc' },
-        select: { srnId: true, createdAt: true }
+    // Also check the order table, just in case there are orders without buyerSRN yet
+    const maxLocalOrder = await prisma.order.aggregate({
+        _max: { srnId: true },
+        where: { srnId: { lt: 10000 } }
     });
-    if (latestLocalOrder?.srnId) {
-        consider(latestLocalOrder.srnId, latestLocalOrder.createdAt);
+    if (maxLocalOrder._max.srnId && maxLocalOrder._max.srnId > maxSrn) {
+        maxSrn = maxLocalOrder._max.srnId;
     }
 
     if (!token) {
-        return NextResponse.json({ latestSrn });
+        return NextResponse.json({ latestSrn: maxSrn });
     }
 
     const today = new Date();
@@ -64,17 +41,15 @@ export async function GET(req: NextRequest) {
             startDate,
             endDate,
             index: 0,
-            limit: 200, // Fetch recent ones
-            sortType: "DESC", // Try to get newest first
+            limit: 500,
             token
         });
 
         if (page && page.rows) {
             for (const r of page.rows) {
-                // Find the best proxy for created date: paymentClearDatetime, labelCreatedDatetime, or simply shipmentReceivedDatetime
-                const dateStr = r.labelCreatedDatetime || r.handoverReceivedDatetime || r.shipmentReceivedDatetime || r.paymentClearDatetime;
-                if (dateStr) {
-                    consider(r.saleRecordNumber, dateStr);
+                const s = Number(String(r.saleRecordNumber || "").trim());
+                if (Number.isFinite(s) && s > maxSrn && s < 10000) {
+                    maxSrn = s;
                 }
             }
         }
@@ -110,7 +85,7 @@ export async function GET(req: NextRequest) {
                     startDate,
                     endDate,
                     clientCode,
-                    sortType: "DESC",
+                    sortType: "ASC",
                     shipmentStatus: "All",
                     saleRecordNumber: "",
                     kurasiShipmentId: "",
@@ -125,7 +100,10 @@ export async function GET(req: NextRequest) {
             const jTemp = await rTemp.json();
             if (jTemp.status === "SUCCESS" && Array.isArray(jTemp.data)) {
                 for (const r of jTemp.data) {
-                    consider(r.saleRecordNumber, r.createdDate || r.updatedDate);
+                    const s = Number(String(r.saleRecordNumber || "").trim());
+                    if (Number.isFinite(s) && s > maxSrn && s < 10000) {
+                        maxSrn = s;
+                    }
                 }
             }
         }
@@ -133,12 +111,7 @@ export async function GET(req: NextRequest) {
         console.error("Failed to fetch shipmentTemp for latest SRN", e);
     }
 
-    // If latestDate logic didn't catch anything due to missing dates, fallback to max locally
-    if (latestSrn === 0 && latestLocalDB) {
-        latestSrn = latestLocalDB.saleRecordNumber;
-    }
-
-    return NextResponse.json({ latestSrn });
+    return NextResponse.json({ latestSrn: maxSrn });
 
   } catch (e: any) {
     console.error("GET /api/srns/latest error:", e);

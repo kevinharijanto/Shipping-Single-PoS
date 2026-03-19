@@ -318,9 +318,6 @@ export default function OrderModal({
       .then((data) => {
         if (data && data.latestSrn != null) {
           setLatestSrn(data.latestSrn);
-          if (data.latestSrn > 0) {
-            setSrn(String(data.latestSrn + 1));
-          }
         }
       })
       .catch(console.error)
@@ -502,13 +499,6 @@ export default function OrderModal({
         setSrnError("SRN is required.");
         return;
       }
-      if (latestSrn != null) {
-        const num = Number(debouncedSrn);
-        if (Number.isFinite(num) && num <= latestSrn) {
-          setSrnError(`Must be greater than latest SRN (${latestSrn}).`);
-          return;
-        }
-      }
       try {
         const r = await fetch(`/api/srns/check?srn=${encodeURIComponent(debouncedSrn)}`);
         const j = await r.json().catch(() => ({}));
@@ -638,11 +628,6 @@ export default function OrderModal({
 
       if (!srn.trim()) throw new Error("SRN is required.");
       if (srnError) throw new Error(srnError);
-      
-      const srnNum = Number(srn.trim());
-      if (latestSrn != null && Number.isFinite(srnNum) && srnNum <= latestSrn) {
-        throw new Error(`SRN must be strictly greater than ${latestSrn}.`);
-      }
 
       // HS code required for Express service
       if (!hsCode.trim()) {
@@ -1027,10 +1012,6 @@ export default function OrderModal({
                   <label className="block text-sm">SRN (Sale Record Number) *</label>
                   {fetchingSrn ? (
                     <span className="text-xs text-gray-500">Checking latest…</span>
-                  ) : latestSrn != null && latestSrn > 0 ? (
-                    <span className="text-xs text-[var(--text-muted)]">
-                      Latest used: <span className="font-medium text-blue-600 dark:text-blue-400">{latestSrn}</span>
-                    </span>
                   ) : null}
                 </div>
                 <input
@@ -1042,9 +1023,7 @@ export default function OrderModal({
                   onChange={(e) => setSrn(e.target.value)}
                 />
                 {srnError && <p className="mt-1 text-xs text-red-600">{srnError}</p>}
-                {!srnError && latestSrn != null && latestSrn > 0 && (
-                  <p className="mt-1 text-xs text-gray-500">Baseline is {latestSrn}, you can use {latestSrn + 1} and above.</p>
-                )}
+
               </div>
 
               {/* Marketplace tax info */}
