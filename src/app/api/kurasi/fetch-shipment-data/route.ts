@@ -41,12 +41,20 @@ export async function POST(req: NextRequest) {
         }
 
         // Fetch shipment data from Kurasi
+        // Cloudflare Bypass Headers
+        const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+        const xForwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+        
+        const fetchHeaders: Record<string, string> = {
+            "x-ship-auth-token": token,
+            accept: "application/json",
+            "User-Agent": userAgent,
+        };
+        if (xForwardedFor) fetchHeaders["X-Forwarded-For"] = xForwardedFor;
+
         const base = process.env.KURASI_BASE ?? "https://api.kurasi.app";
         const res = await fetch(`${base}/api/v1/shipment/otherdata/${order.krsTrackingNumber}`, {
-            headers: {
-                "x-ship-auth-token": token,
-                accept: "application/json",
-            },
+            headers: fetchHeaders,
             cache: "no-store",
         });
 

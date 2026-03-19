@@ -76,24 +76,30 @@ export async function POST(request: NextRequest) {
       return String(pcRaw || "").replace(/^\+/, "").replace(/\D/g, "") || "1";
     })();
 
+    const nameParts = (order.buyer.buyerFullName || "").trim().split(/\s+/);
+    const buyerFirstName = nameParts[0] || "";
+    const buyerLastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+    const userAgent = request.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const xForwardedFor = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
+
     const shipmentData = {
-      buyerFullName: order.buyer.buyerFullName,
+      buyerFullName: "",
       buyerAddress1: order.buyer.buyerAddress1,
       buyerAddress2: order.buyer.buyerAddress2 || "",
+      buyerAddress3: "",
       buyerCity: order.buyer.buyerCity,
-      buyerState: order.buyer.buyerState,
-      buyerZip: order.buyer.buyerZip,
+      buyerState: order.buyer.buyerState || "",
+      buyerZip: order.buyer.buyerZip || "",
       buyerCountry: order.buyer.buyerCountry,
       buyerPhone: buyerPhoneNational,
       serviceName: serviceName,
       packageDesc: order.package.packageDescription || "Package",
       saleRecordNumber: order.srnId?.toString() || "",
       totalWeight: order.package.weightGrams?.toString() || "100",
-      // totalValue: number for Express, string for non-Express
       totalValue: isExpress ? (Number(order.package.totalValue) || 7) : String(Number(order.package.totalValue) || 7),
       currency: order.package.currency || "USD",
       phoneCode: phoneCodeDigits,
-      // hsCode: empty for Express, default/value for non-Express
       hsCode: isExpress ? "" : (order.package.hsCode || "490900"),
       shipmentRemark: order.notes || "",
       companyName: "",
@@ -103,7 +109,6 @@ export async function POST(request: NextRequest) {
       collectTaxId: [],
       valueAddedServiceInsurance: [],
       valueAddedServiceSignature: [],
-      // contentItem: one item for Express, empty array for non-Express
       contentItem: isExpress
         ? [
           {
@@ -118,23 +123,29 @@ export async function POST(request: NextRequest) {
           },
         ]
         : [],
+      documentDescription: "",
       saleChannel: order.saleChannel || "",
       ioss: "",
       iossCheck: false,
+      customsDescription: order.package.packageDescription || "Package", // Send package description as fallback
+      buyerFirstName,
+      buyerLastName,
     };
 
     // Log the payload being sent to Kurasi
     console.log("Kurasi shipment payload:", JSON.stringify(shipmentData, null, 2));
 
     // Prepare headers for Kurasi API
-    const headers = {
+    const headers: Record<string, string> = {
       accept: "application/json, text/plain, */*, text/csv",
       "content-type": "application/json; charset=UTF-8",
       origin: "https://kurasi.app",
       referer: "https://kurasi.app/",
       "x-requested-with": "XMLHttpRequest",
       "x-ship-auth-token": authToken,
+      "User-Agent": userAgent,
     };
+    if (xForwardedFor) headers["X-Forwarded-For"] = xForwardedFor;
 
     console.log("Kurasi API headers:", JSON.stringify(headers, null, 2));
 

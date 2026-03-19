@@ -57,15 +57,20 @@ export async function POST(request: NextRequest) {
 
     console.log("Kurasi create label payload:", JSON.stringify(labelData, null, 2));
 
+    const userAgent = request.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const xForwardedFor = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
+
     // Prepare headers for Kurasi API
-    const headers = {
+    const headers: Record<string, string> = {
       accept: "application/json, text/plain, */*, text/csv",
       "content-type": "application/json; charset=UTF-8",
       origin: "https://kurasi.app",
       referer: "https://kurasi.app/",
       "x-requested-with": "XMLHttpRequest",
       "x-ship-auth-token": authToken,
+      "User-Agent": userAgent,
     };
+    if (xForwardedFor) headers["X-Forwarded-For"] = xForwardedFor;
 
     console.log("Kurasi API headers:", JSON.stringify(headers, null, 2));
 

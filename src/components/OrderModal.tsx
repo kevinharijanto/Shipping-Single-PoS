@@ -447,12 +447,12 @@ export default function OrderModal({
         const j = await r.json().catch(() => ({}));
         if (cancelled) return;
 
-        if (r.ok && j?.data?.customsDescription) {
-          setHsDescription(j.data.customsDescription);
+        if (r.ok && j?.data?.customDescription) {
+          setHsDescription(j.data.customDescription);
           setHsError(null);
         } else if (r.ok && j?.status === "SUCCESS") {
           // Valid but no description
-          setHsDescription(j.data?.customsDescription || "Valid HS Code");
+          setHsDescription(j.data?.customDescription || "Valid HS Code");
           setHsError(null);
         } else {
           setHsDescription(null);

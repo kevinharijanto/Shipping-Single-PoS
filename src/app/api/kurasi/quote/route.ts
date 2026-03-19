@@ -41,12 +41,18 @@ export async function POST(req: Request) {
   const jar = await cookies();
   const token = jar.get("kurasi_token")?.value || "";
 
-  // Minimal headers: EXACTLY like your cURL
-  const headers: HeadersInit = {
+  // Cloudflare Bypass Headers
+  const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+  const xForwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+
+  // Minimal headers: EXACTLY like your cURL + bypass
+  const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json; charset=utf-8",
     "X-Ship-Auth-Token": token,
+    "User-Agent": userAgent,
   };
+  if (xForwardedFor) headers["X-Forwarded-For"] = xForwardedFor;
 
   try {
     const r = await fetch(`${base}/api/v1/ship/calculator`, {

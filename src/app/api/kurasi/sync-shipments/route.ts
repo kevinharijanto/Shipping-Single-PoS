@@ -82,6 +82,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: "FAIL", errorMessage: "Not logged in" }, { status: 401 });
     }
 
+    // Cloudflare WAF bypass headers
+    const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const xForwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+
+    const baseHeaders: Record<string, string> = {
+        "x-ship-auth-token": token,
+        accept: "application/json",
+        "User-Agent": userAgent,
+    };
+    if (xForwardedFor) baseHeaders["X-Forwarded-For"] = xForwardedFor;
+
     // Parse request body FIRST
     const body = await req.json().catch(() => ({}));
     console.log("Sync request body:", body);
@@ -90,7 +101,7 @@ export async function POST(req: NextRequest) {
     let clientCode = "";
     try {
         const meRes = await fetch(`${base}/api/v1/me`, {
-            headers: { "x-ship-auth-token": token, accept: "application/json" },
+            headers: baseHeaders,
             cache: "no-store",
         });
         const meData = await meRes.json();
@@ -132,9 +143,8 @@ export async function POST(req: NextRequest) {
             const r = await fetch(`${base}/api/v1/shipmentManagement`, {
                 method: "POST",
                 headers: {
+                    ...baseHeaders,
                     "Content-Type": "application/json",
-                    "x-ship-auth-token": token,
-                    accept: "application/json",
                 },
                 body: JSON.stringify({
                     startDate,

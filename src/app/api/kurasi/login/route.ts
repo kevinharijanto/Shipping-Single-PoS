@@ -21,12 +21,22 @@ export async function POST(req: Request) {
   }
 
   try {
+    const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const xForwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+
+    const fetchHeaders: Record<string, string> = {
+      Accept: "application/json",
+      "Content-Type": "application/json; charset=utf-8",
+      "User-Agent": userAgent,
+    };
+    
+    if (xForwardedFor) {
+      fetchHeaders["X-Forwarded-For"] = xForwardedFor;
+    }
+
     const r = await fetch(`${base}/api/v1/login`, {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json; charset=utf-8",
-      },
+      headers: fetchHeaders,
       body: JSON.stringify({ username: body.username, password: body.password }),
       cache: "no-store",
     });
