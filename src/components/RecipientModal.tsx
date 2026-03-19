@@ -52,9 +52,7 @@ const POSITIONAL_FIELDS = [
   "buyerState",      // 5: State
   "buyerCity",       // 6: City
   "buyerZip",        // 7: Zip Code
-  null,              // 8: Description (ignored)
-  null,              // 9: Value (ignored)
-  "buyerEmail",      // 10: Email
+  "buyerEmail",      // 8: Email
 ];
 
 // Parse pasted tab-separated data
@@ -391,7 +389,7 @@ export default function RecipientModal({
                   <textarea
                     value={pasteText}
                     onChange={(e) => setPasteText(e.target.value)}
-                    placeholder={`Full Name\tPhone Number\tAddress 1\tAddress 2\tCountry\tState\tCity\tZip Code\tDescription\tValue\tEmail\nJohn Doe\t1234567890\t123 Main St\tApt 4B\tUS\tNY\tNew York\t10001\t\t\tjohn@example.com`}
+                    placeholder={`Full Name\tPhone Number\tAddress 1\tAddress 2\tCountry\tState\tCity\tZip Code\tEmail\nJohn Doe\t1234567890\t123 Main St\tApt 4B\tUS\tNY\tNew York\t10001\tjohn@example.com`}
                     className="w-full h-24 p-3 text-sm font-mono border rounded-lg resize-none
                                bg-gray-50 dark:bg-gray-800 dark:border-gray-700
                                focus:outline-none focus:ring-2 focus:ring-primary/40"
