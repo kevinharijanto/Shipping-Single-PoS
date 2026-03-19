@@ -34,8 +34,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# (curl removed, we will use wget in docker-compose.yml for healthcheck instead)
 
 # Copy necessary files
 COPY --from=builder /app/.next/standalone ./

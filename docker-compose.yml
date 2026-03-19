@@ -16,7 +16,7 @@ services:
       # Persist SQLite database
       - sqlite_data:/app/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3888"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3888"]
       interval: 30s
       timeout: 10s
       retries: 3
